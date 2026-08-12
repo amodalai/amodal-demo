@@ -34,6 +34,10 @@ export interface ReviewResult {
   conditions: string[];
 }
 
+export function findingKey(submission_id: string): string {
+  return `find_${submission_id}`;
+}
+
 export interface AnalyzeOutcome {
   found: boolean;
   submission_id: string;
@@ -211,7 +215,7 @@ export async function runUnderwritingAnalysis(
   const review = parseReviewResult(reviewText);
 
   const missingInfo = Array.from(
-    new Set([...missingRequiredDocs, ...(review.missing_info ?? [])]),
+    new Set([...missingRequiredDocs, ...review.missing_info]),
   );
 
   let recommendation = RECS.has(review.recommendation)
@@ -231,7 +235,7 @@ export async function runUnderwritingAnalysis(
     : 50;
 
   const nowIso = deps.now().toISOString();
-  const finding_id = `find_${submission_id}`;
+  const finding_id = findingKey(submission_id);
   await deps.callTool("store__risk_findings__set", {
     key: finding_id,
     value: {
@@ -239,10 +243,10 @@ export async function runUnderwritingAnalysis(
       submission_id,
       recommendation,
       risk_score: riskScore,
-      summary: review.summary ?? "",
-      cards: review.cards ?? [],
+      summary: review.summary,
+      cards: review.cards,
       missing_info: missingInfo,
-      conditions: review.conditions ?? [],
+      conditions: review.conditions,
       analyzer_session_id: deps.sessionId,
       created_at: nowIso,
     },
@@ -268,10 +272,10 @@ export async function runUnderwritingAnalysis(
     applicant_name: sub.applicant_name,
     recommendation,
     risk_score: riskScore,
-    summary: review.summary ?? "",
-    cards: review.cards ?? [],
+    summary: review.summary,
+    cards: review.cards,
     missing_info: missingInfo,
-    conditions: review.conditions ?? [],
+    conditions: review.conditions,
     finding_id,
   };
 }

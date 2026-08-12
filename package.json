@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@amodalai/react": "0.3.116",
+    "@amodalai/react": "0.3.122",
     "@amodalai/gmail-connection-driver": "^0.1.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

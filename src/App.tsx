@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   useStoreQuery,
-  useIntentRun,
+  useToolRun,
   useAmodalContext,
   ChatWidget,
   RuntimeClient,
@@ -39,10 +39,10 @@ const REC_LABEL: Record<string, string> = {
   decline: "Decline",
 };
 
-// Client-side preview of what `send-outcome` will email, so the confirm modal
+// Client-side preview of what `send_outcome` will email, so the confirm modal
 // shows the operator the real message before they approve it. Mirrors the
-// intent's buildReply (amodal/intents/send-outcome/intent.ts) closely enough to
-// confirm against; the intent stays the source of truth for what actually sends.
+// tool's buildReply (amodal/tools/send_outcome/handler.ts) closely enough to
+// confirm against; the tool stays the source of truth for what actually sends.
 const REPLY_OPENING: Record<string, string> = {
   "ready-to-quote":
     "Good news: this submission meets our underwriting guidelines and we are ready to prepare a quote.",
@@ -55,6 +55,11 @@ const REPLY_OPENING: Record<string, string> = {
   decline:
     "After review, we are unable to offer terms on this submission at this time.",
 };
+
+function previewSubject(s: SubmissionRow): string {
+  const applicantName = s.applicant_name.replace(/[^\x00-\x7F]/g, "");
+  return `Re: ${applicantName} - submission update`;
+}
 
 function previewReply(s: SubmissionRow, finding: FindingRow): string {
   const lines: string[] = ["Hello,", "", `Re: ${s.applicant_name}`, ""];
@@ -86,10 +91,7 @@ function previewReply(s: SubmissionRow, finding: FindingRow): string {
  * arrives. This function stops listening right there and returns, so the
  * caller can refetch the stores immediately. The model then narrates the
  * saved finding into the (separate) chat session this call creates; the UI
- * ignores that narration and does not wait for it. This replaces the old
- * `analyze-submission-action` replay intent: the runtime's intent run path
- * cannot reach subagents, so the button now enters through the same door
- * as the chat command.
+ * ignores that narration and does not wait for it.
  */
 async function runAnalyzeCommand(
   client: RuntimeClient,
@@ -264,7 +266,7 @@ function ReplyModal({
           <dt>To</dt>
           <dd>{s.broker_email ?? "—"}</dd>
           <dt>Subject</dt>
-          <dd>{`Re: ${s.applicant_name} - submission update`}</dd>
+          <dd>{previewSubject(s)}</dd>
         </dl>
         <pre className="modal__body">{previewReply(s, finding)}</pre>
         {error ? <div className="banner error">{error}</div> : null}
@@ -297,8 +299,8 @@ export default function App() {
   );
   const subsQ = useStoreQuery<SubmissionRow>("submissions", { limit: 200 });
   const findingsQ = useStoreQuery<FindingRow>("risk_findings", { limit: 200 });
-  const sync = useIntentRun("sync-submissions");
-  const sendReply = useIntentRun("send-outcome");
+  const sync = useToolRun("sync_submissions");
+  const sendReply = useToolRun("send_outcome");
   const [replyTarget, setReplyTarget] = useState<{
     s: SubmissionRow;
     finding: FindingRow;

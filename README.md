@@ -128,17 +128,22 @@ the model then reports the tool's result:
 The UI buttons:
 
 - the **Sync inbox** button →
-  [`sync-submissions`](amodal/intents/sync-submissions/intent.ts), a replay
-  intent (Gmail read-only surface): reads the broker mail and files
-  submissions into the stores. Falls back to the demo dataset when no mailbox
-  is connected.
+  [`sync_submissions`](amodal/tools/sync_submissions/handler.ts), a durable
+  tool on the direct-invoke lane (Gmail read-only surface): reads the broker
+  mail and files submissions into the stores. Falls back to the demo dataset
+  when no mailbox is connected.
 - the **Analyze** button sends the same `analyze <id>` command through the
   chat surface (`RuntimeClient.chatStream`), so it enters through the same
   trigger as the chat command and cannot drift from it.
 - the **Send reply** button →
-  [`send-outcome`](amodal/intents/send-outcome/intent.ts), a replay intent
-  (Gmail confirm surface): emails the decision back to the broker, only after
-  the operator confirms the exact message.
+  [`send_outcome`](amodal/tools/send_outcome/handler.ts), a durable tool on
+  the direct-invoke lane (Gmail confirm surface): emails the decision back to
+  the broker, only after the operator confirms the exact message.
+
+Both buttons call `POST /api/tools/<name>/run` via `useToolRun`; the
+`{"kind": "invoke"}` trigger in each tool's `tool.json` is the opt-in to that
+lane, and neither tool is in any agent's `tools` list, so the model cannot
+call them.
 
 Both `analyze` entry points run the same four-stage Amodal loop, in the shared
 [`runUnderwritingAnalysis`](amodal/_lib/underwriting-analysis.ts) behind the
@@ -170,13 +175,13 @@ tools and the reviewer subagent); undeclared calls fail closed:
    chat, and the UI refetches its `useStoreQuery` data. The
    `ready-to-quote-guard` hook backstops that last rule for every writer.
 
-Once a submission has a finding, **Send reply** runs `send-outcome`: it loads the
+Once a submission has a finding, **Send reply** runs `send_outcome`: it loads the
 submission + its finding, composes the broker email, and calls `send_message`.
 The `outbound-reply-guard` hook blocks that send if the submission was never
 triaged: the confirm policy, made true for every caller.
 
 How do submissions arrive now? The primary path is **Sync inbox**
-(`sync-submissions`, the read-only surface): with a mailbox connected it reads
+(`sync_submissions`, the read-only surface): with a mailbox connected it reads
 real broker mail. With none, it loads the five demo submissions from the dataset.
 The `seed` chat command still works as an offline shortcut: it's a regex
 trigger on the `seed_examples` tool, so a chat message fires it, and it's
@@ -197,17 +202,16 @@ stores for later runs.
 | `amodal/tools/seed_examples/`                         | The seeding tool behind the `seed` trigger (offline shortcut).                                                                 |
 | `amodal/tools/claims-stats/`                          | The custom tool: deterministic claims arithmetic the reviewer calls mid-reasoning. Numbers, never verdicts.                    |
 | `evals/`                                              | The eval suite from step 4, plus `analyze-repeat-claims` and `analyze-claims-window` covering the new tool. Re-run it before promoting. |
-| `amodal/intents/sync-submissions/`                    | Replay intent for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                            |
-| `amodal/intents/send-outcome/`                        | Replay intent for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                                  |
+| `amodal/tools/sync_submissions/`                      | Durable invoke-lane tool for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                 |
+| `amodal/tools/send_outcome/`                          | Durable invoke-lane tool for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                       |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage behind the composite tool: both entry points run it, so they can't drift.                                    |
-| `amodal/_types/replay-intent.ts`                      | Vendored `defineIntent` / replay-context types (kept local, like `intent.ts`).                                                 |
-| `amodal/_types/tool-context.ts`                       | Vendored custom-tool types (`CustomToolContext` / `ToolDefinition`), same local-stub convention.                               |
+| `amodal/_types/tool-context.ts`                       | Vendored custom-tool types (`CustomToolContext` / `ToolDefinition`), kept local so the example typechecks offline.             |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
 | `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`.                |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
 | `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a submission is triaged.                                                 |
-| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useIntentRun` (Sync/Send) + the chat-trigger Analyze button, the Send-reply confirm modal. |
+| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useToolRun` (Sync/Send) + the chat-trigger Analyze button, the Send-reply confirm modal. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 
@@ -271,7 +275,7 @@ To talk to a real mailbox, copy `.env.example` to `.env` and set
 npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
-npm run typecheck  # typechecks both the runtime intents (amodal/) and the SPA (src/)
+npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src/)
 ```
 
 ## Configuration

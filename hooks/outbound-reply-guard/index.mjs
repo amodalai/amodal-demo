@@ -1,11 +1,11 @@
 /**
  * outbound-reply-guard: the confirm surface's platform-level backstop.
  *
- * Step 5 adds the Gmail connection. Its READ surface (`read_messages`) is
- * side-effect-free, so `sync-submissions` calls it freely. Its WRITE surface
- * (`send_message`) mails a real broker, so `send-outcome` runs it only from the
+ * Step 7 adds the Gmail connection. Its READ surface (`read_messages`) is
+ * side-effect-free, so `sync_submissions` calls it freely. Its WRITE surface
+ * (`send_message`) mails a real broker, so `send_outcome` runs it only from the
  * operator-confirmed Send reply action. But the tool is registered for the
- * whole agent, and a future intent (or the chat agent) could call it. A hook
+ * whole agent, and a future tool (or the chat agent) could call it. A hook
  * sees and may block EVERY tool call regardless of who made it, so it's the
  * right place to make the confirm policy true platform-wide.
  *

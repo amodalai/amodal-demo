@@ -1,0 +1,32 @@
+{
+  "description": "Sync the broker inbox: read new submission mail from the Gmail connection's read-only surface and file each submission into the stores. Falls back to seeding the demo dataset when no mailbox is connected. Fired from the UI's Sync inbox button via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Gmail search query. Defaults to recent unread submission mail."
+      },
+      "limit": {
+        "type": "number",
+        "description": "Maximum messages to read. Defaults to 25."
+      }
+    }
+  },
+  "runningLabel": "Syncing the broker inbox",
+  "completedLabel": "Synced the broker inbox",
+  "timeout": 60000,
+  "execution": "durable",
+  "uses": {
+    "tools": [
+      "read_messages",
+      "store__submissions__get",
+      "store__submissions__set",
+      "store__submissions__query",
+      "store__documents__set",
+      "store__claims__set"
+    ]
+  },
+  "triggers": [{ "kind": "invoke" }]
+}
