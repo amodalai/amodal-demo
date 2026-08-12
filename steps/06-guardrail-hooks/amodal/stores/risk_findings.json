@@ -1,0 +1,27 @@
+{
+  "name": "risk_findings",
+  "key": "{finding_id}",
+  "schema": {
+    "finding_id": { "type": "string" },
+    "submission_id": { "type": "string" },
+    "recommendation": {
+      "type": "enum",
+      "values": [
+        "ready-to-quote",
+        "quote-with-conditions",
+        "request-info",
+        "refer",
+        "decline"
+      ]
+    },
+    "risk_score": { "type": "number" },
+    "summary": { "type": "string" },
+    "cards": { "type": "array", "item": { "type": "object", "fields": {} } },
+    "missing_info": { "type": "array", "item": { "type": "string" } },
+    "conditions": { "type": "array", "item": { "type": "string" } },
+    "analyzer_session_id": { "type": "string" },
+    "created_at": { "type": "datetime" }
+  },
+  "indexed": ["submission_id", "recommendation", "created_at"],
+  "_comment_purpose": "The agent's structured findings for a submission, written by analyze-submission. One row per submission (keyed find_{submission_id} so re-runs overwrite). `cards` are the review items ({category, status: pass|needs-review|missing|decline, note})."
+}

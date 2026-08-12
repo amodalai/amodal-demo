@@ -1,0 +1,20 @@
+# Eval: Seed Demo Data
+
+Smoke-tests the `seed-examples` intent: the `seed` message must load (or
+confirm) the four demo submissions. The `analyze-*` evals self-seed, so this
+eval can run anywhere in the suite; it pins the explicit `seed` path.
+
+## Setup
+
+Context: The stores may be empty (fresh deploy) or already seeded: `seed` is idempotent and must succeed either way.
+
+## Query
+
+"seed"
+
+## Assertions
+
+- contains: demo submission
+- Should report that the demo submissions are loaded (either just now or already)
+- Should suggest analyzing a submission next
+- Should NOT report an error

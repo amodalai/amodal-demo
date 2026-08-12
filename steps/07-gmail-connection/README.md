@@ -1,0 +1,236 @@
+# Underwriting Review Example
+
+An agent that triages commercial insurance submissions against an underwriting
+guide: one skill, one knowledge file, four stores, an eval suite, a custom
+single-screen UI, a Gmail connection whose read-only surface syncs submissions in and
+whose confirm-gated surface emails outcomes back, and guardrail hooks. The
+agent logic runs on the Amodal runtime, and the UI is a small React app the runtime
+serves for you.
+
+Each submission is scored against a fictional carrier's underwriting guide, and the
+agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
+`request-info`, `refer`, or `decline`), saves it, and, on the operator's
+confirmation, emails it back to the broker.
+
+This is **step 7** of a guided, incremental series. See
+[The demo in steps](#the-demo-in-steps) to jump to any stage.
+
+> Fictional demo. The agent recommends a workflow status and conditions only.
+> It does not bind coverage, calculate premium, or give regulatory/legal
+> advice.
+
+## The demo in steps
+
+This repo isn't one finished app: it's a guided build. Each step is a git
+tag that adds one concept on top of the step before it, so the demo
+grows from "the simplest thing that runs" to "shipped in a product" one idea at a
+time. Two ways to use it:
+
+- Check out a tag to see the whole app frozen at that stage:
+  `git checkout step-6`, deploy it, read its `README`.
+- Diff two adjacent tags to see precisely what that one concept changed:
+  `git diff step-6..step-7`.
+
+**You are here: `step-7`.** This README describes the app at this step.
+
+| Step                                                            | What you learn                                                                                                 |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [`step‑1`](https://github.com/amodalai/amodal-demo/tree/step-1) | The runtime loop and context compiler, and the core primitives: skills and knowledge                           |
+| [`step‑2`](https://github.com/amodalai/amodal-demo/tree/step-2) | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                              |
+| [`step‑3`](https://github.com/amodalai/amodal-demo/tree/step-3) | Splitting work between code and the LLM: deterministic logic in an intent vs. judgment delegated to a skill    |
+| [`step‑4`](https://github.com/amodalai/amodal-demo/tree/step-4) | Evals as quality gates: pin the skill's judgment down before you build surfaces on top of it                   |
+| [`step‑5`](https://github.com/amodalai/amodal-demo/tree/step-5) | Going beyond hosted chat: a custom UI with `runtimeApp`, and `defineIntent`: replay intents fired from the UI  |
+| [`step‑6`](https://github.com/amodalai/amodal-demo/tree/step-6) | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
+| [`step‑7`](https://github.com/amodalai/amodal-demo/tree/step-7) | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
+| `step‑8` _(planned)_                                            | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
+| `step‑9` _(planned)_                                            | Delegating a sub-task to a separate scoped agent in `agents/` when a single skill isn't the right unit of work |
+| `step‑10` _(planned)_                                           | Background automations: scheduled and webhook runs that need no UI open                                        |
+| `step‑11` _(planned)_                                           | Session types & memory: one deployed agent, different modes with different capabilities                        |
+| `step‑12` _(planned)_                                           | Embedding & multi-tenancy: the agent in your own app, with your auth and a `scope_id` per tenant               |
+
+## The one idea this step teaches: connecting to an external service
+
+Steps 1–6 were self-contained: every submission lived in the demo's own stores,
+put there by `seed`. Step 7 reaches an external service, the broker
+mailbox, through a connection, and shows that the surfaces a connection exposes
+don't all carry the same risk.
+
+What a connection is. A driver package named in `amodal.json#packages`, bound
+to the agent by a local spec under
+[`amodal/connections/gmail/`](amodal/connections/gmail/) (matched on
+`protocol`). Once loaded it registers tools you call with `ctx.callTool(...)`,
+here `read_messages` and `send_message`. The load is non-fatal: with no
+`GMAIL_ACCESS_TOKEN` the agent still boots and the demo still runs (see
+[Running it](#running-it)).
+
+Read-only surface (`read_messages`). Reading the inbox has no outside side
+effect, so an intent may call it freely, with no confirmation.
+[`sync-submissions`](amodal/intents/sync-submissions/intent.ts) (the **Sync
+inbox** button) reads the broker mail and files each submission into the
+`submissions` / `documents` stores. When no mailbox is connected it falls back to
+a _simulated_ inbound built from the demo dataset (exactly as a real deployment
+falls back from a live pull to a simulated one), so the screen always populates.
+
+Confirm surface (`send_message`). Emailing a real broker is irreversible, so
+it must be operator-confirmed, never automatic.
+[`send-outcome`](amodal/intents/send-outcome/intent.ts) (the **Send reply**
+button) composes the decision email and sends it, but only after the operator
+reviews the exact message in a modal and confirms.
+
+The gate, enforced platform-wide. The confirm lives in the UI, but the
+`send_message` tool exists for the whole agent, and a future intent (or the chat
+agent) could call it. As in step 6, a hook makes the policy true everywhere:
+[`outbound-reply-guard`](hooks/outbound-reply-guard/index.mjs) fires on any
+`send_message`, resolves the recipient to a submission by `broker_email`, and
+blocks the send if that submission has no saved finding: no reply before a
+decision, whoever tries.
+
+See the diff: `git diff step-6..step-7`.
+
+## How it works
+
+The agent still has two regex chat intents: a message that matches the
+pattern runs a handler directly, no LLM round trip:
+
+- send **`seed`** once → [`seed-examples`](amodal/intents/seed-examples/intent.ts)
+  loads the demo submissions, their documents, and their claims into the stores.
+- send **`analyze sub_bistro_ember`** (or `triage` / `review` / `assess` + an id)
+  → [`analyze-submission`](amodal/intents/analyze-submission/intent.ts) runs the
+  triage and reports in chat.
+
+And it adds three replay intents that match no chat message. They run only
+when the UI fires them (`useIntentRun`):
+
+- the **Sync inbox** button →
+  [`sync-submissions`](amodal/intents/sync-submissions/intent.ts) (Gmail
+  read-only surface): reads the broker mail and files submissions into the
+  stores. Falls back to the demo dataset when no mailbox is connected.
+- the **Analyze** button →
+  [`analyze-submission-action`](amodal/intents/analyze-submission-action/intent.ts):
+  triages one submission.
+- the **Send reply** button →
+  [`send-outcome`](amodal/intents/send-outcome/intent.ts) (Gmail confirm
+  surface): emails the decision back to the broker, only after the operator
+  confirms the exact message.
+
+Both `analyze` paths run the same four-stage Amodal loop, in the shared
+[`runUnderwritingAnalysis`](amodal/_lib/underwriting-analysis.ts):
+
+1. **load**: reads the submission, its `documents`, and its `claims` from the
+   stores via the auto-generated `store__*__get` / `store__*__query` tools.
+2. **check (in code)**: computes the completeness check deterministically in
+   TypeScript: any `required` document whose status isn't `received` is missing,
+   full stop. A rule, not a judgment, so code decides it and hands the skill the
+   result as fact.
+3. **review (in the skill)**: the
+   [`underwriting-review`](amodal/skills/underwriting-review/SKILL.md) skill reads the
+   [underwriting guide](amodal/knowledge/underwriting-guide.md) and makes the judgment a
+   formula can't (eligibility, hazards, claims severity, one recommendation).
+4. **record**: code holds the floor on the way out: it folds the deterministic
+   missing-docs list into the finding and won't let a packet with missing
+   required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
+   stamps the submission, and reports: `emitText` in chat, the session result +
+   a `useStoreQuery` refetch in the UI. The `ready-to-quote-guard` hook backstops
+   that last rule for every writer.
+
+Once a submission has a finding, **Send reply** runs `send-outcome`: it loads the
+submission + its finding, composes the broker email, and calls `send_message`.
+The `outbound-reply-guard` hook blocks that send if the submission was never
+triaged: the confirm policy, made true for every caller.
+
+How do submissions arrive now? The primary path is **Sync inbox**
+(`sync-submissions`, the read-only surface): with a mailbox connected it reads
+real broker mail. With none, it loads the four demo submissions from the dataset.
+The classic `seed` chat intent still works as an offline shortcut: it's a
+regex intent, so only a chat message can trigger it (the UI can't), and it's
+idempotent, safe to resend. Either way, a run doesn't see its own uncommitted
+writes: `analyze` reads already-committed data from a prior sync or seed, and
+on fresh stores it falls back to the in-memory demo examples while seeding the
+stores for later runs.
+
+## What's in here
+
+| Path                                                  | What it is                                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `amodal.json`                                         | Manifest: the chat agent (`session_types`), its intents, four stores, the `gmail` package, and `runtimeApp: { custom: true }`. |
+| `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
+| `evals/`                                              | The eval suite from step 4, unchanged. Re-run it before promoting.                                                              |
+| `amodal/intents/sync-submissions/`                    | Replay intent for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                            |
+| `amodal/intents/send-outcome/`                        | Replay intent for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                                  |
+| `amodal/intents/seed-examples/`                       | Loads the demo data into the stores (offline shortcut: send `seed`).                                                           |
+| `amodal/intents/analyze-submission/`                  | The classic regex chat intent (load → call skill → record).                                                                    |
+| `amodal/intents/analyze-submission-action/`           | The replay (`defineIntent`) sibling the UI fires: same triage, run route.                                                      |
+| `amodal/_lib/underwriting-analysis.ts`                | The shared triage both `analyze` intents call, so they can't drift.                                                            |
+| `amodal/_types/replay-intent.ts`                      | Vendored `defineIntent` / replay-context types (kept local, like `intent.ts`).                                                 |
+| `amodal/skills/underwriting-review/`                  | The LLM skill that scores against the underwriting guide.                                                                      |
+| `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the skill reasons over.                                                                       |
+| `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`.                |
+| `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
+| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
+| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a submission is triaged.                                                 |
+| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useIntentRun`, the Send-reply confirm modal.                        |
+| `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
+| `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
+
+## Example cases
+
+The four submissions shipped in `examples.ts`:
+
+| Submission                | Why                                                         | Expected recommendation  |
+| ------------------------- | ----------------------------------------------------------- | ------------------------ |
+| Bistro Ember LLC          | Missing kitchen fire-safety inspection + prior kitchen fire | `request-info` / `refer` |
+| Summit Yoga Studio        | Complete packet, no claims, eligible                        | `ready-to-quote`         |
+| Northstar Storage         | 22-yr roof, hail region, clean claims                       | `quote-with-conditions`  |
+| Vacant Millworks Building | Vacant, ineligible                                          | `decline`                |
+
+## Running it
+
+Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
+and the agent chat alongside it. It runs with no credentials: the Gmail
+connection loads non-fatally, so every step works offline:
+
+1. Open the submissions screen (the custom UI) and click **Sync inbox**. With
+   no mailbox connected it loads the four demo submissions from the dataset. With
+   `GMAIL_ACCESS_TOKEN` set it reads the real broker inbox. (Offline, you can also
+   send `seed` in the agent chat.)
+2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
+   and missing-info list appear inline. (You can still triage from chat with
+   `analyze <id>`. Both run the same logic.)
+3. Click **Send reply** to email the outcome back to the broker. Review the exact
+   message in the modal and **Confirm**. That operator confirmation is the gate
+   on the write surface. Offline, the send is captured by the dev outbox
+   (`GMAIL_DEV_OUTBOX`). With `GMAIL_FROM_ADDRESS` set it goes out over Gmail.
+
+- `sub_bistro_ember` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
+
+To talk to a real mailbox, copy `.env.example` to `.env` and set
+`GMAIL_ACCESS_TOKEN` (+ `GMAIL_FROM_ADDRESS` to send). See
+[`amodal/connections/gmail/README.md`](amodal/connections/gmail/README.md).
+
+### Developing the UI locally
+
+```sh
+npm install
+npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
+npm run build      # production build → dist/ (what the cloud build uploads)
+npm run typecheck  # typechecks both the runtime intents (amodal/) and the SPA (src/)
+```
+
+## Configuration
+
+- `amodal/_lib/examples.ts`: the demo submissions that `seed` and the offline
+  **Sync inbox** fallback load. Edit it and redeploy to change the dataset. Each
+  entry is self-contained, with embedded `docs[]`, `claims[]`, and a `broker_email`.
+- `amodal/connections/gmail/spec.json`: binds the driver by `protocol` and maps
+  the token / from-address / dev-outbox to env vars. `.env.example` documents them,
+  all optional, unset runs offline.
+- `amodal.json` manifest: the chat agent (`session_types`), its intents, the four
+  stores, the `gmail` package, and `runtimeApp`.
+- `hooks/*/hook.json`: the guards' config: `ready-to-quote-guard` (which write
+  tools it gates, which recommendation it blocks on missing docs) and
+  `outbound-reply-guard` (which send tool it gates).
+- `evals/*.md`: the eval suite from step 4, unchanged. Re-run it after any
+  edit here.
+- `amodal.json` sets `memory.enabled: false`. Durable state lives in
+  the stores, so each triage is a pure function of what is in them and there is
+  nothing to carry across sessions in conversation memory.

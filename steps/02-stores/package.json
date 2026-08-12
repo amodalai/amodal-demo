@@ -1,0 +1,14 @@
+{
+  "name": "@amodalai/example-underwriting-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An agent that triages commercial insurance submissions against an underwriting guide. One skill, one knowledge file, and four stores: the agent reads and persists data through the CRUD tools Amodal generates. No UI. Runs on the Amodal runtime.",
+  "amodal": {
+    "type": "template",
+    "name": "underwriting-review-example",
+    "displayName": "Underwriting Review Example",
+    "description": "Triage commercial property submissions against a fictional underwriting guide. The underwriting-review skill scores each submission and recommends a workflow status for a human underwriter. The agent assists; a human decides.",
+    "category": "Insurance"
+  }
+}

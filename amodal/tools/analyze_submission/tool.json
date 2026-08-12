@@ -1,0 +1,38 @@
+{
+  "description": "Triage one commercial-property submission: load it (with its documents and claims) from the stores, compute the deterministic missing-required-documents check in code, delegate the underwriting judgment to the underwriting-reviewer subagent, then record the finding and stamp the submission. Returns the saved finding. Recommends a workflow status for a human underwriter; never binds coverage or prices premium. Reports found: false when the submission id is unknown.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "submission_id": {
+        "type": "string",
+        "description": "The submission to triage, e.g. sub_bistro_ember."
+      }
+    },
+    "required": ["submission_id"]
+  },
+  "runningLabel": "Triaging {{submission_id}}",
+  "completedLabel": "Triaged {{submission_id}}",
+  "timeout": 180000,
+  "uses": {
+    "tools": [
+      "store__submissions__get",
+      "store__submissions__query",
+      "store__submissions__set",
+      "store__documents__query",
+      "store__documents__set",
+      "store__claims__query",
+      "store__claims__set",
+      "store__risk_findings__set"
+    ],
+    "subagents": ["underwriting-reviewer"]
+  },
+  "triggers": [
+    {
+      "kind": "regex",
+      "pattern": "^\\s*(?:analyze|triage|review|assess)\\s+(?<submission_id>sub_[a-z0-9_]+)\\s*$",
+      "flags": "i",
+      "continueToLLM": true
+    }
+  ]
+}
