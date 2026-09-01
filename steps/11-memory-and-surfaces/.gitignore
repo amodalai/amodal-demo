@@ -1,6 +1,7 @@
 node_modules/
 dist/
 amodal/**/.build/
+agents/**/.build/
 .amodal/
 .env
 .env.*
