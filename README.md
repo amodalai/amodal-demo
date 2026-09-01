@@ -49,9 +49,9 @@ this step.
 | [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
 | [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
 | **step 8** (repo root, you are here)                    | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
-| step 9 _(planned)_                                      | Delegating a sub-task to a separate scoped agent in `agents/` when a single skill isn't the right unit of work |
-| step 10 _(planned)_                                     | Background automations: scheduled and webhook runs that need no UI open                                        |
-| step 11 _(planned)_                                     | Session types & memory: one deployed agent, different modes with different capabilities                        |
+| step 9 _(planned)_                                      | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`, vs. the code-called reviewer |
+| step 10 _(planned)_                                     | Background automations: scheduled and webhook runs that need no UI open, and what a confirm gate means with no human present |
+| step 11 _(planned)_                                     | Memory and conditional surfaces: one deployed agent whose capabilities vary per caller (`claims`, `humanPresent`)          |
 | step 12 _(planned)_                                     | Embedding & multi-tenancy: the agent in your own app, with your auth and a `scope_id` per tenant               |
 
 > See [`steps/README.md`](steps/README.md) for how the step snapshots are
