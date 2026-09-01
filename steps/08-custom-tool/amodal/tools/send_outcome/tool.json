@@ -1,0 +1,31 @@
+{
+  "description": "Email the triage outcome back to the broker over the Gmail connection's confirm surface, then record the outbound reply on the submission. Requires a saved risk finding. Fired only from the operator-confirmed Send reply action via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "submission_id": {
+        "type": "string",
+        "description": "The submission whose outcome to send, e.g. sub_bistro_ember."
+      },
+      "message": {
+        "type": "string",
+        "description": "Optional operator note prepended to the reply body."
+      }
+    },
+    "required": ["submission_id"]
+  },
+  "runningLabel": "Sending the reply for {{submission_id}}",
+  "completedLabel": "Sent the reply for {{submission_id}}",
+  "timeout": 60000,
+  "execution": "durable",
+  "uses": {
+    "tools": [
+      "store__submissions__get",
+      "store__risk_findings__get",
+      "send_message",
+      "store__submissions__set"
+    ]
+  },
+  "triggers": [{ "kind": "invoke" }]
+}

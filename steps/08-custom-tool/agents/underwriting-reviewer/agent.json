@@ -1,0 +1,5 @@
+{
+  "name": "Underwriting Reviewer",
+  "description": "Scores an insurance submission against the carrier's fictional underwriting guide. Returns review cards, a missing-info list, suggested conditions, and a single recommendation (ready-to-quote / quote-with-conditions / request-info / refer / decline) as a JSON object, for a human underwriter. Does NOT bind coverage, calculate premium, or make the final decision itself.",
+  "tools": ["claims_stats"]
+}
