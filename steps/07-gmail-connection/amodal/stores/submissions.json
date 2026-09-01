@@ -40,7 +40,8 @@
     "recommendation",
     "reply_status",
     "analyzed_at",
-    "created_at"
+    "created_at",
+    "broker_email"
   ],
-  "_comment_purpose": "A business applying for insurance. analyze-submission reads the row plus its documents + claims, scores it against the underwriting guide, and writes the model's `recommendation` + `risk_score` back. `status` is the human-owned workflow lane (new -> in-review -> closed); the analyzer only advances it to `in-review`, it never sets a terminal status: agent assists, human decides. `broker_email` is where the submission came from (populated by `sync-submissions`, the Gmail read surface) and where the outcome reply goes; `reply_status`/`replied_at` track that outbound reply (written by `send-outcome`, the Gmail confirm surface). No premium/binding fields by design: the example recommends a workflow status + conditions only, never rates or binds."
+  "_comment_purpose": "A business applying for insurance. analyze_submission reads the row plus its documents + claims, scores it against the underwriting guide, and writes the model's `recommendation` + `risk_score` back. `status` is the human-owned workflow lane (new -> in-review -> closed); the analyzer only advances it to `in-review`, it never sets a terminal status: agent assists, human decides. `broker_email` is where the submission came from (populated by `sync_submissions`, the Gmail read surface) and where the outcome reply goes; `reply_status`/`replied_at` track that outbound reply (written by `send_outcome`, the Gmail confirm surface). No premium/binding fields by design: the example recommends a workflow status + conditions only, never rates or binds."
 }

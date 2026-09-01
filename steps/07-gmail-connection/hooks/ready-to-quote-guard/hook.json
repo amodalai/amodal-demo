@@ -1,7 +1,7 @@
 {
   "name": "ready-to-quote-guard",
   "label": "Ready-to-quote guard",
-  "description": "Enforces the one hard rule of the underwriting review (a packet with a missing required document can never be ready-to-quote) at the platform layer, for EVERY writer. The analyze intents already downgrade ready-to-quote in code, but the chat agent has rw store tools and a future intent could regress. This preToolUse hook fires on any store__submissions__set / store__risk_findings__set, reads the documents store for that submission, and blocks the write when a required doc isn't received. Capability gate (store:read) + verified caller are platform-supplied, while the policy (the rule) is the author's, owned here.",
+  "description": "Enforces the one hard rule of the underwriting review (a packet with a missing required document can never be ready-to-quote) at the platform layer, for EVERY writer. The analyze handler already downgrades ready-to-quote in code, but the chat agent has rw store tools and a future tool could regress. This preToolUse hook fires on any store__submissions__set / store__risk_findings__set, reads the documents store for that submission, and blocks the write when a required doc isn't received. Capability gate (store:read) + verified caller are platform-supplied, while the policy (the rule) is the author's, owned here.",
   "points": ["preToolUse"],
   "capabilities": ["store:read", "reads_tool_io", "gates_tools"],
   "failPolicy": "closed",

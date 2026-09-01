@@ -4,7 +4,17 @@ export { EXAMPLES };
 
 interface SeedCtx {
   callTool(toolName: string, args: Record<string, unknown>): Promise<unknown>;
+  now?(): Date;
 }
+
+export const NEW_SUBMISSION_DEFAULTS = {
+  status: "new" as const,
+  recommendation: null,
+  risk_score: null,
+  analyzed_at: null,
+  reply_status: "not-sent" as const,
+  replied_at: null,
+};
 
 function submissionRow(ex: Example, nowIso: string) {
   return {
@@ -14,13 +24,8 @@ function submissionRow(ex: Example, nowIso: string) {
     state: ex.state ?? null,
     property_value_usd: ex.property_value_usd ?? null,
     annual_revenue_usd: ex.annual_revenue_usd ?? null,
-    status: "new",
-    recommendation: null,
-    risk_score: null,
-    analyzed_at: null,
+    ...NEW_SUBMISSION_DEFAULTS,
     broker_email: ex.broker_email ?? null,
-    reply_status: "not-sent",
-    replied_at: null,
     created_at: nowIso,
   };
 }
@@ -51,34 +56,31 @@ export function exampleRows(ex: Example, nowIso: string) {
 }
 
 export async function ensureExamplesSeeded(ctx: SeedCtx): Promise<number> {
-  const nowIso = new Date().toISOString();
+  const nowIso = (ctx.now ? ctx.now() : new Date()).toISOString();
 
-  let existing: Set<string>;
-  try {
-    const existingQ = (await ctx.callTool("store__submissions__query", {
-      limit: 1000,
-    })) as {
-      documents: Array<{ payload: { submission_id: string } }>;
-    };
-    existing = new Set(
-      (existingQ.documents ?? []).map((d) => d.payload.submission_id),
-    );
-  } catch {
-    existing = new Set();
-  }
+  const existingQ = (await ctx.callTool("store__submissions__query", {
+    limit: 1000,
+  })) as {
+    documents: Array<{ payload: { submission_id: string } }>;
+  };
+  const existing = new Set(
+    (existingQ.documents ?? []).map((d) => d.payload.submission_id),
+  );
 
   let seeded = 0;
   for (const ex of EXAMPLES) {
     if (existing.has(ex.submission_id)) continue;
     seeded += 1;
 
+    const rows = exampleRows(ex, nowIso);
+
     await ctx.callTool("store__submissions__set", {
       key: ex.submission_id,
-      value: submissionRow(ex, nowIso),
+      value: rows.submission,
     });
 
     let i = 0;
-    for (const d of ex.docs ?? []) {
+    for (const d of rows.documents) {
       i += 1;
       const document_id = `${ex.submission_id}_doc_${i}`;
       await ctx.callTool("store__documents__set", {
@@ -86,18 +88,14 @@ export async function ensureExamplesSeeded(ctx: SeedCtx): Promise<number> {
         value: {
           document_id,
           submission_id: ex.submission_id,
-          kind: d.kind,
-          name: d.name,
-          status: d.status,
-          required: d.required,
-          notes: d.notes ?? null,
+          ...d,
           created_at: nowIso,
         },
       });
     }
 
     let c = 0;
-    for (const cl of ex.claims ?? []) {
+    for (const cl of rows.claims) {
       c += 1;
       const claim_id = `${ex.submission_id}_claim_${c}`;
       await ctx.callTool("store__claims__set", {
@@ -105,10 +103,7 @@ export async function ensureExamplesSeeded(ctx: SeedCtx): Promise<number> {
         value: {
           claim_id,
           submission_id: ex.submission_id,
-          year: cl.year,
-          description: cl.description,
-          amount_usd: cl.amount_usd,
-          open: cl.open ?? false,
+          ...cl,
           created_at: nowIso,
         },
       });
