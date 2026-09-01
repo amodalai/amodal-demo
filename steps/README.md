@@ -13,7 +13,8 @@ duplicated here.
 | `05-custom-ui/`            | Custom UI (`runtimeApp`) and UI-fired runs                      |
 | `06-guardrail-hooks/`      | Guardrail hooks: hard rules at the platform layer               |
 | `07-gmail-connection/`     | External connection, read-only vs. confirm surfaces             |
-| _(root)_                   | Step 8: writing a custom tool                                   |
+| `08-custom-tool/`          | Writing a custom tool                                           |
+| _(root)_                   | Step 9: model-initiated delegation (`call_subagent`)            |
 
 ## Using the steps
 
@@ -24,7 +25,7 @@ duplicated here.
   ```sh
   diff -r steps/05-custom-ui steps/06-guardrail-hooks
   # last snapshot vs. the current step (the repo root):
-  diff -r -x steps -x node_modules -x dist steps/07-gmail-connection .
+  diff -r -x steps -x node_modules -x dist steps/08-custom-tool .
   ```
 
 ## Maintaining this layout
