@@ -1,5 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
-import { findingKey } from "../../_lib/underwriting-analysis.js";
+import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js";
 
 /**
  * send_outcome: the Gmail connection's CONFIRM surface.
@@ -73,20 +73,18 @@ export default async function send_outcome(
     );
   }
 
-  const sub = await ctx.callTool<SubmissionRow | undefined>(
-    "store__submissions__get",
-    {
+  const sub = storeGetResult<SubmissionRow>(
+    await ctx.callTool("store__submissions__get", {
       key: submission_id,
-    },
+    }),
   );
   if (!sub) {
     throw new Error(`Submission ${submission_id} not found.`);
   }
-  const finding = await ctx.callTool<FindingRow | undefined>(
-    "store__risk_findings__get",
-    {
+  const finding = storeGetResult<FindingRow>(
+    await ctx.callTool("store__risk_findings__get", {
       key: findingKey(submission_id),
-    },
+    }),
   );
   if (!finding) {
     throw new Error(
