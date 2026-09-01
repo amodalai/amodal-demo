@@ -43,9 +43,9 @@ this step.
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | [`steps/01`](steps/01-skills-and-knowledge/)            | The runtime loop and context compiler, and the core primitives: skills and knowledge                           |
 | [`steps/02`](steps/02-stores/)                          | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                              |
-| [`steps/03`](steps/03-code-vs-llm/)                     | Splitting work between code and the LLM: deterministic logic in an intent vs. judgment delegated to a skill    |
-| [`steps/04`](steps/04-evals/)                           | Evals as quality gates: pin the skill's judgment down before you build surfaces on top of it                   |
-| [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, and `defineIntent`: replay intents fired from the UI  |
+| [`steps/03`](steps/03-code-vs-llm/)                     | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent |
+| [`steps/04`](steps/04-evals/)                           | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                |
+| [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                       |
 | [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
 | [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
 | **step 8** (repo root, you are here)                    | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |

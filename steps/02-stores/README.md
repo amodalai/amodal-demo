@@ -19,32 +19,29 @@ This is **step 2** of a guided, incremental series. See
 
 ## The demo in steps
 
-This repo isn't one finished app: it's a guided build. Each step is a git
-tag that adds one concept on top of the step before it, so the demo
-grows from "the simplest thing that runs" to "shipped in a product" one idea at a
-time. Two ways to use it:
+This repo isn't one finished app: it's a guided build. Each step adds one
+concept on top of the step before it, so the demo grows from "the simplest
+thing that runs" to "shipped in a product" one idea at a time. Every past step
+is a self-contained snapshot under `steps/`; **the repo root is always the
+current step**. Two ways to use it:
 
-- Check out a tag to see the whole app frozen at that stage:
-  `git checkout step-1`, deploy it, read its `README`.
-- Diff two adjacent tags to see precisely what that one concept changed:
-  `git diff step-1..step-2`.
+- Open a step folder to see the whole app frozen at that stage: read its
+  `README.md`, deploy it as-is.
+- Diff two adjacent steps to see precisely what that one concept changed:
+  `diff -r steps/01-skills-and-knowledge steps/02-stores`.
 
-**You are here: `step-2`.** This README describes the app at this step.
+**You are here: `steps/02-stores`.** This README describes the app at this step.
 
-| Step                                                            | What you learn                                                                                                 |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`step‑1`](https://github.com/amodalai/amodal-demo/tree/step-1) | The runtime loop and context compiler, and the core primitives: skills and knowledge                           |
-| [`step‑2`](https://github.com/amodalai/amodal-demo/tree/step-2) | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                              |
-| [`step‑3`](https://github.com/amodalai/amodal-demo/tree/step-3) | Splitting work between code and the LLM: deterministic logic in an intent vs. judgment delegated to a skill    |
-| [`step‑4`](https://github.com/amodalai/amodal-demo/tree/step-4) | Evals as quality gates: pin the skill's judgment down before you build surfaces on top of it                   |
-| [`step‑5`](https://github.com/amodalai/amodal-demo/tree/step-5) | Going beyond hosted chat: a custom UI with `runtimeApp`, and `defineIntent`: replay intents fired from the UI  |
-| [`step‑6`](https://github.com/amodalai/amodal-demo/tree/step-6) | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
-| [`step‑7`](https://github.com/amodalai/amodal-demo/tree/step-7) | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
-| `step‑8` _(planned)_                                            | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
-| `step‑9` _(planned)_                                            | Delegating a sub-task to a separate scoped agent in `agents/` when a single skill isn't the right unit of work |
-| `step‑10` _(planned)_                                           | Background automations: scheduled and webhook runs that need no UI open                                        |
-| `step‑11` _(planned)_                                           | Session types & memory: one deployed agent, different modes with different capabilities                        |
-| `step‑12` _(planned)_                                           | Embedding & multi-tenancy: the agent in your own app, with your auth and a `scope_id` per tenant               |
+| Step                           | What you learn                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
+| `steps/02-stores`              | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                                  |
+| `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
+| `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
+| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                           |
+| `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
+| `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
+| repo root (step 8)             | Writing a custom tool the reviewer itself calls, when a prompt and a schema aren't enough                          |
 
 ## The one idea this step teaches: stores + generated CRUD tools
 
@@ -56,7 +53,7 @@ generates a set of CRUD tools (`store__submissions__set`,
 to the agent. Persisting and recalling data is now something the agent does with
 tools, no code required.
 
-Still no intents and no custom UI: the manifest lists a `skills` array and a
+Still no custom tools and no custom UI: the manifest lists a `skills` array and a
 `stores` map, and the agent drives the rest.
 
 ## How it works
