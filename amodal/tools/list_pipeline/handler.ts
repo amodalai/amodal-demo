@@ -1,4 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
+import { rows } from "../../_lib/underwriting-analysis.js";
 
 /**
  * list_pipeline: the scoped read behind the UI's submissions table.
@@ -20,11 +21,6 @@ export default async function list_pipeline(
         "Check tool.json `uses` and that the calling path wires composition.",
     );
   }
-
-  const rows = (q: unknown) =>
-    ((q as { documents?: Array<{ payload: unknown }> }).documents ?? []).map(
-      (d) => d.payload,
-    );
 
   const subsQ = await ctx.callTool("store__submissions__query", { limit: 200 });
   const findingsQ = await ctx.callTool("store__risk_findings__query", {

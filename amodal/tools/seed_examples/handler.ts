@@ -27,14 +27,14 @@ export default async function seed_examples(
       : "All demo submissions were already in the store; nothing to seed.",
   );
 
+  const hint = `Triage one with e.g. \`analyze ${EXAMPLES[0].submission_id}\`.`;
+
   return {
     seeded,
     total: EXAMPLES.length,
     message:
-      seeded > 0
-        ? `Loaded ${seeded} demo submission${seeded === 1 ? "" : "s"} into the stores. ` +
-          `Triage one with e.g. \`analyze ${EXAMPLES[0].submission_id}\`.`
-        : `All ${EXAMPLES.length} demo submissions are already loaded. ` +
-          `Triage one with e.g. \`analyze ${EXAMPLES[0].submission_id}\`.`,
+      (seeded > 0
+        ? `Loaded ${seeded} demo submission${seeded === 1 ? "" : "s"} into the stores. `
+        : `All ${EXAMPLES.length} demo submissions are already loaded. `) + hint,
   };
 }

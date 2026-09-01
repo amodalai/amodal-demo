@@ -543,7 +543,7 @@ export default function App() {
                 analyze={(id) => runAnalyzeCommand(chatClient, id, desk)}
                 onAnalyzed={refetch}
                 onReply={(sub, finding) => {
-                  sendReply.reset?.();
+                  sendReply.reset();
                   setReplyTarget({ desk, s: sub, finding });
                 }}
               />

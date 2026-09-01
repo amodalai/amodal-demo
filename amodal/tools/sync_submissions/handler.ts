@@ -3,6 +3,7 @@ import {
   ensureExamplesSeeded,
   NEW_SUBMISSION_DEFAULTS,
 } from "../../_lib/demo-data.js";
+import { storeGetResult } from "../../_lib/underwriting-analysis.js";
 
 /**
  * sync_submissions: the Gmail connection's READ-ONLY surface.
@@ -48,6 +49,8 @@ export default async function sync_submissions(
     );
   }
 
+  const now = () => new Date(ctx.now ? ctx.now() : Date.now());
+
   const query =
     typeof params.query === "string" && params.query.trim()
       ? params.query
@@ -69,7 +72,7 @@ export default async function sync_submissions(
       ctx.log("gmail not connected; seeding demo inbox");
       const filed = await ensureExamplesSeeded({
         callTool: (name, args) => ctx.callTool!(name, args),
-        now: () => new Date(ctx.now ? ctx.now() : Date.now()),
+        now,
       });
       return {
         source: "simulated",
@@ -88,16 +91,14 @@ export default async function sync_submissions(
   }
 
   const messages = res.messages;
-  const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
+  const nowIso = now().toISOString();
   let filed = 0;
   for (const m of messages) {
+    const broker_email = extractEmail(m.from);
     const submission_id =
-      `sub_${slug(extractEmail(m.from))}_${slug(m.message_id)}`.slice(0, 120);
-    const existing = await ctx.callTool<{ submission_id?: string } | undefined>(
-      "store__submissions__get",
-      {
-        key: submission_id,
-      },
+      `sub_${slug(broker_email)}_${slug(m.message_id)}`.slice(0, 120);
+    const existing = storeGetResult<{ submission_id?: string }>(
+      await ctx.callTool("store__submissions__get", { key: submission_id }),
     );
     if (existing?.submission_id) continue;
 
@@ -105,13 +106,13 @@ export default async function sync_submissions(
       key: submission_id,
       value: {
         submission_id,
-        applicant_name: m.subject?.trim() || extractEmail(m.from),
+        applicant_name: m.subject?.trim() || broker_email,
         business_type: "New submission (from broker email)",
         state: null,
         property_value_usd: null,
         annual_revenue_usd: null,
         ...NEW_SUBMISSION_DEFAULTS,
-        broker_email: extractEmail(m.from),
+        broker_email,
         created_at: m.date ?? nowIso,
       },
     });
