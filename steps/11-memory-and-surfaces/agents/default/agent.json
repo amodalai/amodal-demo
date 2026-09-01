@@ -1,0 +1,10 @@
+{
+  "name": "Underwriting Chat",
+  "description": "The chat front door for the commercial-property insurance triage demo. Reports triage results; the deterministic work runs in triggered tools. Tools and subagents live in the sibling agent.ts, where entries carry conditionals.",
+  "stores": {
+    "submissions": "rw",
+    "documents": "rw",
+    "claims": "rw",
+    "risk_findings": "rw"
+  }
+}
