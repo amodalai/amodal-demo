@@ -9,10 +9,7 @@ import "./styles.css";
 // domain), falling back to localhost:3001 for `npm run dev`. The httpOnly
 // session cookie rides every same-origin request, so the SDK needs no bearer:
 // an empty token means no Authorization header.
-const env = (
-  import.meta as unknown as { env?: Record<string, string | undefined> }
-).env;
-const runtimeUrl = env?.["VITE_RUNTIME_URL"] ?? "http://localhost:3001";
+const runtimeUrl = import.meta.env.VITE_RUNTIME_URL ?? "http://localhost:3001";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root");

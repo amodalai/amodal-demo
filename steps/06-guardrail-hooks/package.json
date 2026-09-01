@@ -3,19 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: two chat intents, one skill, four stores, plus a custom single-screen React UI that fires triage as a replay intent and a preToolUse hook that enforces the one hard rule platform-wide.",
+  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: two triggered tools, a reviewer subagent, four stores, a custom single-screen React UI, and a preToolUse guard hook that enforces the one hard rule platform-wide.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@amodalai/react": "0.3.115",
+    "@amodalai/react": "0.3.124",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@amodalai/types": "^0.3.96",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
@@ -27,7 +26,7 @@
     "type": "template",
     "name": "underwriting-review-example",
     "displayName": "Underwriting Review Example",
-    "description": "Triage commercial property submissions against a fictional underwriting guide. The underwriting-review skill scores each submission and recommends a workflow status for a human underwriter. The agent assists; a human decides.",
+    "description": "Triage commercial property submissions against a fictional underwriting guide. The underwriting-reviewer subagent scores each submission and recommends a workflow status for a human underwriter. The agent assists; a human decides.",
     "category": "Insurance"
   }
 }

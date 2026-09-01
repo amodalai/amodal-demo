@@ -5,11 +5,11 @@ Binds the `@amodalai/gmail-connection-driver` (declared in
 token is present, the runtime registers the tools this demo uses:
 
 - `read_messages({query, limit})` — **read-only surface.** Searches the broker
-  inbox and returns flat messages. The `sync-submissions` intent calls it to
-  file each new submission into the `submissions` / `documents` stores. Reading
-  the inbox has no outside side effect, so an intent may call it freely.
+  inbox and returns flat messages. The `sync_submissions` tool calls it to
+  file each new submission into the `submissions` store. Reading
+  the inbox has no outside side effect, so a tool may call it freely.
 - `send_message({to, subject, body})` — **confirm surface.** Sends a plain-text
-  email. The `send-outcome` intent calls it to reply to the broker with the
+  email. The `send_outcome` tool calls it to reply to the broker with the
   triage decision. Sending mail to a real broker is irreversible, so this runs
   **only** from the operator-confirmed **Send reply** action, never
   automatically.
@@ -43,7 +43,7 @@ The connection load is **non-fatal**: if `GMAIL_ACCESS_TOKEN` is unset the
 agent still boots, and:
 
 - **Sync** (`read_messages`) returns a `no_access_token` error;
-  `sync-submissions` catches it and falls back to a simulated inbound built
+  `sync_submissions` catches it and falls back to a simulated inbound built
   from the demo dataset (`amodal/_lib/examples.ts`), so the submissions screen
   still populates. (Only the missing-token case falls back. With a token that
   Gmail rejects, e.g. expired, the sync **fails** with a diagnostic message

@@ -23,5 +23,5 @@
     "created_at": { "type": "datetime" }
   },
   "indexed": ["submission_id", "recommendation", "created_at"],
-  "_comment_purpose": "The agent's structured findings for a submission, written by analyze-submission. One row per submission (keyed find_{submission_id} so re-runs overwrite). `cards` are the review items ({category, status: pass|needs-review|missing|decline, note})."
+  "_comment_purpose": "The agent's structured findings for a submission, written by analyze_submission. One row per submission (keyed find_{submission_id} so re-runs overwrite). `cards` are the review items ({category, status: pass|needs-review|missing|decline, note})."
 }

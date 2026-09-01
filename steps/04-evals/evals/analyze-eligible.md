@@ -2,12 +2,12 @@
 
 Summit Yoga Studio is the clean case: complete packet, no claims, clearly
 eligible. The triage must come back `ready-to-quote`. If this eval fails after
-a skill or underwriting-guide edit, the change tightened the guide more than
+a reviewer or underwriting-guide edit, the change tightened the guide more than
 intended.
 
 ## Setup
 
-Context: Self-seeding: on fresh stores the analyze intent loads the demo data itself, so this eval passes alone and in any order.
+Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
 
 ## Query
 

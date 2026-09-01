@@ -2,11 +2,11 @@
 
 The Vacant Millworks Building is vacant, and the underwriting guide lists
 vacant buildings as ineligible. The triage must decline. If this eval fails, the guide
-edit (or the skill) stopped treating vacancy as a hard exclusion.
+edit (or the reviewer subagent) stopped treating vacancy as a hard exclusion.
 
 ## Setup
 
-Context: Self-seeding: on fresh stores the analyze intent loads the demo data itself, so this eval passes alone and in any order.
+Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
 
 ## Query
 

@@ -26,5 +26,5 @@
     "created_at": { "type": "datetime" }
   },
   "indexed": ["submission_id", "kind", "status"],
-  "_comment_purpose": "The paperwork attached to a submission. `required` + `status` drive the deterministic completeness check in analyze-submission: any required document that isn't `received` becomes a missing-info item. `notes` holds a short plain-text description in place of a real file."
+  "_comment_purpose": "The paperwork attached to a submission. `required` + `status` drive the deterministic completeness check in analyze_submission: any required document that isn't `received` becomes a missing-info item. `notes` holds a short plain-text description in place of a real file."
 }
