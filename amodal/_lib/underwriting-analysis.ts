@@ -90,6 +90,17 @@ function rows<T>(q: unknown): T[] {
 }
 
 /**
+ * Unwrap a `store__*__get` result. The runtime returns `{error: "... not
+ * found ..."}` for a missing key, not undefined, so a truthiness check on
+ * the raw result takes the found path with a garbage row. Every get goes
+ * through here.
+ */
+export function storeGetResult<T>(doc: unknown): T | undefined {
+  if (!doc || typeof doc !== "object" || "error" in doc) return undefined;
+  return doc as T;
+}
+
+/**
  * Parse the reviewer subagent's final text into a ReviewResult. The
  * AGENT.md contract is "reply with only the JSON object", but stay
  * defensive: strip code fences and any stray prose around the outermost
@@ -132,9 +143,9 @@ export async function runUnderwritingAnalysis(
   submission_id: string,
   deps: AnalyzeDeps,
 ): Promise<AnalyzeOutcome> {
-  let sub = (await deps.callTool("store__submissions__get", {
-    key: submission_id,
-  })) as SubmissionRow | undefined;
+  let sub = storeGetResult<SubmissionRow>(
+    await deps.callTool("store__submissions__get", { key: submission_id }),
+  );
 
   let documents: DocumentRow[];
   let claims: ClaimRow[];
