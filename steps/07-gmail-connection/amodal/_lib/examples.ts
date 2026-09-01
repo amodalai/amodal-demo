@@ -97,6 +97,7 @@ export const EXAMPLES: Example[] = [
         name: "Building value + condition",
         status: "received",
         required: true,
+        notes: "Building in sound condition; no elevated wind, hail, or wildfire exposure noted.",
       },
       {
         kind: "claims-history",

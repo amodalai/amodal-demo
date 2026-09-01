@@ -19,8 +19,9 @@ information, needs a senior underwriter, or should be declined.
 
 - An older building feature in otherwise-good shape (e.g. an aging roof) →
   attach a condition such as an inspection or a repair warranty.
-- A business in a higher-hazard area (heavy wind, hail, or wildfire region) →
-  attach a higher deductible for that hazard.
+- A location the packet describes as a higher-hazard area (heavy wind, hail,
+  or wildfire region) → attach a higher deductible for that hazard. Take this
+  from the documents and their notes, never from the state alone.
 - A restaurant that cooks → require an up-to-date kitchen fire-safety
   inspection.
 
