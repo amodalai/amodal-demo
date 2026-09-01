@@ -2,9 +2,9 @@
  * ready-to-quote-guard: the underwriting review's one hard rule, enforced at the
  * platform layer for every writer.
  *
- * Step 3 put the rule in code INSIDE the analyze intent: a packet with a missing
+ * Step 3 put the rule in code INSIDE the analyze handler: a packet with a missing
  * required document is never `ready-to-quote`. But the chat agent holds rw store
- * tools, and any future intent could regress the rule. A hook sees and may block
+ * tools, and any future tool could regress the rule. A hook sees and may block
  * EVERY tool call regardless of who made it, so it's the right place to make the
  * invariant true platform-wide, not just inside one handler.
  *
@@ -16,7 +16,7 @@
  * into a block.
  *
  * Shipped as `.mjs` so the runtime's hook loader (no on-demand esbuild, unlike
- * intents/tools) can import it directly. Exports `createHook(config) => {run}`.
+ * tools) can import it directly. Exports `createHook(config) => {run}`.
  *
  * @typedef {{ toolName: string, args: Record<string, unknown> }} PreToolUsePayload
  * @typedef {{ get(store: string, key: string): Promise<Record<string, unknown> | null>,

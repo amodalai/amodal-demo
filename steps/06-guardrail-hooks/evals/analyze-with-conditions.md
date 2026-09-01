@@ -6,7 +6,7 @@ quote, subject to conditions about the roof.
 
 ## Setup
 
-Context: Self-seeding: on fresh stores the analyze intent loads the demo data itself, so this eval passes alone and in any order.
+Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
 
 ## Query
 
