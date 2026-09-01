@@ -1,0 +1,8 @@
+{
+  "protocol": "gmail",
+  "driverPackage": "@amodalai/gmail-connection-driver",
+  "accessToken": "env:GMAIL_ACCESS_TOKEN",
+  "fromAddress": "env:GMAIL_FROM_ADDRESS",
+  "userId": "me",
+  "devSinkDir": "env:GMAIL_DEV_OUTBOX"
+}

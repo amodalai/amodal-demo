@@ -1,0 +1,9 @@
+{
+  "name": "amodal-demo",
+  "version": "0.1.0",
+  "runtimeApp": { "custom": true },
+  "packages": ["@amodalai/gmail-connection-driver"],
+  "memory": {
+    "enabled": false
+  }
+}

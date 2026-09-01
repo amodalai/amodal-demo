@@ -1,0 +1,12 @@
+{
+  "name": "Underwriting Chat",
+  "description": "The chat front door for the commercial-property insurance triage demo. Reports triage results; the deterministic work runs in triggered tools.",
+  "tools": ["analyze_submission", "seed_examples", "claims_stats"],
+  "subagents": ["underwriting-reviewer"],
+  "stores": {
+    "submissions": "rw",
+    "documents": "rw",
+    "claims": "rw",
+    "risk_findings": "rw"
+  }
+}

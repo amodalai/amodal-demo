@@ -1,0 +1,30 @@
+{
+  "name": "documents",
+  "key": "{document_id}",
+  "schema": {
+    "document_id": { "type": "string" },
+    "submission_id": { "type": "string" },
+    "kind": {
+      "type": "enum",
+      "values": [
+        "application",
+        "financials",
+        "property-details",
+        "photos",
+        "inspection",
+        "claims-history",
+        "other"
+      ]
+    },
+    "name": { "type": "string" },
+    "status": {
+      "type": "enum",
+      "values": ["received", "requested", "missing"]
+    },
+    "required": { "type": "boolean" },
+    "notes": { "type": "string", "nullable": true },
+    "created_at": { "type": "datetime" }
+  },
+  "indexed": ["submission_id", "kind", "status"],
+  "_comment_purpose": "The paperwork attached to a submission. `required` + `status` drive the deterministic completeness check in analyze_submission: any required document that isn't `received` becomes a missing-info item. `notes` holds a short plain-text description in place of a real file."
+}

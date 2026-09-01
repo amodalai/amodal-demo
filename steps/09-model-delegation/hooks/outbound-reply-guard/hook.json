@@ -1,0 +1,11 @@
+{
+  "name": "outbound-reply-guard",
+  "label": "Outbound reply guard",
+  "description": "Backstops the Gmail confirm surface at the platform layer, for EVERY caller. The send_outcome tool only ever runs from the operator-confirmed Send reply action, but the Gmail send_message tool exists whenever the connection is loaded, and a future tool (or the chat agent) could call it. This preToolUse hook fires on any send_message, resolves the recipient to a submission via broker_email, and blocks the send when that submission has no saved risk finding (i.e. it was never triaged). So 'no reply before a decision' is true platform-wide, not just inside one handler. Capability gate (store:read) + verified caller are platform-supplied, while the policy (the rule) is the author's, owned here.",
+  "points": ["preToolUse"],
+  "capabilities": ["store:read", "reads_tool_io", "gates_tools"],
+  "failPolicy": "closed",
+  "config": {
+    "guardedTools": ["send_message"]
+  }
+}
