@@ -1,12 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  useStoreQuery,
   useToolRun,
   useAutomation,
   useAmodalContext,
   ChatWidget,
   RuntimeClient,
 } from "@amodalai/react";
+
+/**
+ * The demo's tenants: two underwriting desks, each a scope_id. Every request
+ * the UI makes carries the selected desk's scope, so sessions, memory, and
+ * store rows partition per desk. The ids are stable identifiers (what Amodal
+ * sees); the labels are this app's own display names.
+ */
+const DESKS = [
+  { id: "desk-pacific", label: "Pacific desk" },
+  { id: "desk-atlantic", label: "Atlantic desk" },
+] as const;
+
+function initialDesk(): string {
+  try {
+    const d = localStorage.getItem("uw-desk");
+    if (d && DESKS.some((x) => x.id === d)) return d;
+  } catch {}
+  return DESKS[0].id;
+}
 
 interface SubmissionRow {
   submission_id: string;
@@ -46,8 +64,8 @@ interface AutoSyncBinding {
  * management surface (list/enable/disable) is wired in the cloud runtime;
  * locally it 404s, so the control degrades to a note instead of breaking.
  */
-function AutoSyncToggle() {
-  const auto = useAutomation();
+function AutoSyncToggle({ desk }: { desk: string }) {
+  const auto = useAutomation({ scopeId: desk });
   const [binding, setBinding] = useState<AutoSyncBinding | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unavailable">(
     "loading",
@@ -171,10 +189,12 @@ function previewReply(s: SubmissionRow, finding: FindingRow): string {
 async function runAnalyzeCommand(
   client: RuntimeClient,
   submission_id: string,
+  scopeId: string,
 ): Promise<void> {
   const analyzeCallIds = new Set<string>();
   for await (const ev of client.chatStream(`analyze ${submission_id}`, {
     agent: "default",
+    scopeId,
   })) {
     if (ev.type === "tool_call_start" && ev.tool_name === "analyze_submission") {
       analyzeCallIds.add(ev.tool_id);
@@ -366,16 +386,27 @@ function ReplyModal({
   );
 }
 
+interface Pipeline {
+  submissions: SubmissionRow[];
+  findings: FindingRow[];
+}
+
 export default function App() {
   const { runtimeUrl } = useAmodalContext();
+  const [desk, setDesk] = useState(initialDesk);
   const chatClient = useMemo(
     () => new RuntimeClient({ runtimeUrl, getToken: async () => "" }),
     [runtimeUrl],
   );
-  const subsQ = useStoreQuery<SubmissionRow>("submissions", { limit: 200 });
-  const findingsQ = useStoreQuery<FindingRow>("risk_findings", { limit: 200 });
-  const sync = useToolRun("sync_submissions");
-  const sendReply = useToolRun("send_outcome");
+  // Every lane carries the desk's scope: the store rows these runs touch
+  // live in that desk's partition, invisible to the other desk.
+  const pipelineQ = useToolRun("list_pipeline", { scopeId: desk });
+  const sync = useToolRun("sync_submissions", { scopeId: desk });
+  const sendReply = useToolRun("send_outcome", { scopeId: desk });
+  const [pipeline, setPipeline] = useState<Pipeline>({
+    submissions: [],
+    findings: [],
+  });
   const [replyTarget, setReplyTarget] = useState<{
     s: SubmissionRow;
     finding: FindingRow;
@@ -383,14 +414,34 @@ export default function App() {
   const isSyncing = sync.status === "running";
   const isSending = sendReply.status === "running";
 
-  const submissions = (subsQ.data ?? [])
-    .map((r) => r.value)
-    .sort((a, b) => a.applicant_name.localeCompare(b.applicant_name));
+  const submissions = [...pipeline.submissions].sort((a, b) =>
+    a.applicant_name.localeCompare(b.applicant_name),
+  );
   const findingBySub = new Map<string, FindingRow>();
-  for (const r of findingsQ.data ?? [])
-    findingBySub.set(r.value.submission_id, r.value);
+  for (const f of pipeline.findings) findingBySub.set(f.submission_id, f);
 
-  const refetch = () => Promise.all([subsQ.refetch(), findingsQ.refetch()]);
+  // The direct store REST reads are scope-blind (agent-level partition), so
+  // the table reads through the scoped list_pipeline invoke tool instead.
+  // The invoke lane's response carries the tool's return value as `result`;
+  // the SDK's ToolRunResult type doesn't declare it yet, hence the cast.
+  async function refetch() {
+    const res = await pipelineQ.run({});
+    const data = (res as { result?: Pipeline }).result;
+    if (data) setPipeline(data);
+  }
+
+  useEffect(() => {
+    setPipeline({ submissions: [], findings: [] });
+    refetch().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desk]);
+
+  function onPickDesk(id: string) {
+    setDesk(id);
+    try {
+      localStorage.setItem("uw-desk", id);
+    } catch {}
+  }
 
   async function onSync() {
     try {
@@ -414,7 +465,19 @@ export default function App() {
         <div className="head__bar">
           <h1>Underwriting Review</h1>
           <div className="head__actions">
-            <AutoSyncToggle />
+            <select
+              className="desk"
+              value={desk}
+              onChange={(e) => onPickDesk(e.target.value)}
+              title="Each desk is a scope_id: its submissions, findings, sessions, and memory are partitioned from the other desk's."
+            >
+              {DESKS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            <AutoSyncToggle key={desk} desk={desk} />
             <button className="btn" disabled={isSyncing} onClick={onSync}>
               {isSyncing ? "Syncing…" : "Sync inbox"}
             </button>
@@ -435,9 +498,13 @@ export default function App() {
         ) : null}
       </header>
 
-      {submissions.length === 0 ? (
+      {submissions.length === 0 && pipelineQ.status === "running" ? (
         <div className="empty">
-          <p>No submissions in the store yet.</p>
+          <p>Loading the desk's pipeline…</p>
+        </div>
+      ) : submissions.length === 0 ? (
+        <div className="empty">
+          <p>No submissions on this desk yet.</p>
           <p className="sub">
             Click <strong>Sync inbox</strong> to pull submissions from the
             broker mailbox. With no mailbox connected, it loads the five demo
@@ -464,7 +531,7 @@ export default function App() {
                 key={s.submission_id}
                 s={s}
                 finding={findingBySub.get(s.submission_id)}
-                analyze={(id) => runAnalyzeCommand(chatClient, id)}
+                analyze={(id) => runAnalyzeCommand(chatClient, id, desk)}
                 onAnalyzed={refetch}
                 onReply={(sub, finding) => {
                   sendReply.reset?.();
@@ -492,11 +559,13 @@ export default function App() {
       ) : null}
 
       <ChatWidget
+        key={desk}
         position="floating"
         serverUrl={runtimeUrl}
         user={{ id: "operator" }}
         getToken={async () => ""}
         agent="default"
+        scopeId={desk}
         theme={{ primaryColor: "#000000", mode: "light" }}
         onStreamEnd={() => {
           void refetch();

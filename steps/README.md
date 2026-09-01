@@ -16,7 +16,8 @@ duplicated here.
 | `08-custom-tool/`          | Writing a custom tool                                           |
 | `09-model-delegation/`     | Model-initiated delegation (`call_subagent`)                    |
 | `10-automations/`          | Background automations, and the confirm gate with no human present |
-| _(root)_                   | Step 11: memory and conditional surfaces                        |
+| `11-memory-and-surfaces/`  | Memory and conditional surfaces                                 |
+| _(root)_                   | Step 12: embedding & multi-tenancy (`scope_id`)                 |
 
 ## Using the steps
 
@@ -27,7 +28,7 @@ duplicated here.
   ```sh
   diff -r steps/05-custom-ui steps/06-guardrail-hooks
   # last snapshot vs. the current step (the repo root):
-  diff -r -x steps -x node_modules -x dist steps/10-automations .
+  diff -r -x steps -x node_modules -x dist steps/11-memory-and-surfaces .
   ```
 
 ## Maintaining this layout

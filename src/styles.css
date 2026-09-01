@@ -253,6 +253,15 @@ code {
   gap: 14px;
 }
 
+.desk {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 .autosync {
   display: inline-flex;
   align-items: center;
