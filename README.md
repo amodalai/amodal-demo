@@ -5,7 +5,9 @@ guide: a reviewer subagent (code-called for the saved triage, model-dispatched
 for what-if reviews), one knowledge file, four stores, an eval suite, a
 custom single-screen UI, a Gmail connection whose read-only surface syncs
 submissions in and whose confirm-gated surface emails outcomes back (with a
-daily auto-sync automation that needs no UI open), guardrail
+daily auto-sync automation that needs no UI open), agent memory for the
+desk's standing guidance, a conditional surface that withholds human-only
+capabilities from headless runs, guardrail
 hooks, and two custom tools: a composite `analyze_submission` tool that runs
 the deterministic triage around the subagent, and a pure `claims_stats` tool
 the reviewer calls for the claims arithmetic. The agent logic runs on the
@@ -16,7 +18,7 @@ agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
 `request-info`, `refer`, or `decline`), saves it, and, on the operator's
 confirmation, emails it back to the broker.
 
-This is **step 10** of a guided, incremental series. See
+This is **step 11** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
 
 > Fictional demo. The agent recommends a workflow status and conditions only.
@@ -36,9 +38,9 @@ always the current step**. Two ways to use it:
 - Diff two adjacent steps to see precisely what that one concept changed:
   `diff -r steps/05-custom-ui steps/06-guardrail-hooks`. To diff the last
   snapshot against the current step (the root):
-  `diff -r -x steps -x node_modules -x dist steps/09-model-delegation .`
+  `diff -r -x steps -x node_modules -x dist steps/10-automations .`
 
-**You are here: step 10**, the repo root. This README describes the app at
+**You are here: step 11**, the repo root. This README describes the app at
 this step.
 
 | Step                                                    | What you learn                                                                                                 |
@@ -52,55 +54,61 @@ this step.
 | [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
 | [`steps/08`](steps/08-custom-tool/)                     | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
 | [`steps/09`](steps/09-model-delegation/)                | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`                   |
-| **step 10** (repo root, you are here)                   | Background automations: scheduled and webhook runs that need no UI open, and what a confirm gate means with no human present |
-| step 11 _(planned)_                                     | Memory and conditional surfaces: one deployed agent whose capabilities vary per caller (`claims`, `humanPresent`)          |
+| [`steps/10`](steps/10-automations/)                     | Background automations: scheduled runs that need no UI open, and what a confirm gate means with no human present |
+| **step 11** (repo root, you are here)                   | Memory and conditional surfaces: one deployed agent whose capabilities vary per caller (`claims`, `humanPresent`)          |
 | step 12 _(planned)_                                     | Embedding & multi-tenancy: the agent in your own app, with your auth and a `scope_id` per tenant               |
 
 > See [`steps/README.md`](steps/README.md) for how the step snapshots are
 > maintained and how new steps are added.
 
-## The one idea this step teaches: background automations
+## The one idea this step teaches: capabilities that depend on the caller
 
-Everything the app does so far starts with someone present: a chat message, a
-button click, an operator confirming a modal. Step 10 makes one flow run with
-nobody there, and then asks the question that raises: what does a confirm gate
-mean when there is no one to confirm?
+One agent is deployed, but not every caller should hold the same surface. Step
+11 makes two capability decisions depend on who — or what — is asking, and
+gives the agent a place to keep what a caller tells it.
 
-The gap. Broker mail arrives around the clock, but the inbox only syncs when
-an operator clicks **Sync inbox**. The morning pipeline should already hold
-last night's submissions. That is not a new tool: `sync_submissions` already
-does the work. It is the same tool on a schedule.
+The setup step 10 created. Sessions now start two ways: an operator in the
+chat, and a scheduled binding with nobody present. Two of the chat agent's
+capabilities silently assumed a person. `seed_examples` is an operator's
+offline shortcut; a headless run that "seeds" over a real mailbox sync would
+fake data with no one to notice. The reviewer dispatch (step 9) exists to
+answer a person mid-conversation; a headless run has nobody asking. Telling
+the model "don't use these when running unattended" would be a request. Not
+holding the tool is a fact.
 
-What an automation is. A platform-managed **binding**: a target (an agent
-prompt, a subagent, or a durable tool), a schedule (`cron`, a coarse `every`,
-or a one-time `at`), and an enabled flag. The UI's **Auto-sync daily** toggle
-creates one with the React SDK's `useAutomation()`:
-`schedule('sync_submissions', { schedule: { every: '1d' } })` posts the
-binding, and the platform's automation worker reconciles it into a scheduler
-and fires the run through the same durable queue lane the buttons use. No UI
-needs to be open; nothing is polled from the browser. Webhook-triggered
-bindings are the same row with a webhook trigger in place of a schedule, for
-runs an external event starts.
+What a conditional surface is. [`agent.ts`](agents/default/agent.ts) is the
+code form of `agent.json`, and the only form that can carry a predicate: any
+entry may be `{name, conditional}`, where the conditional is a synchronous,
+pure function of the caller context (`claims`, `context`, `scopeId`,
+`humanPresent`, `isSubagent`). Both capabilities above are now gated on
+`ctx.humanPresent`, which the platform derives from how the run was triggered:
+false for automation, webhook, and backfill runs, and not forgeable from a
+request body. The declarative rest (name, description, stores) stays in
+`agent.json`; where both files set a field, `agent.ts` wins.
 
-What to schedule, and what never to. `sync_submissions` is the right target
-because everything about it already tolerates running unattended: it reads a
-read-only surface, files idempotently, and falls back harmlessly offline.
-`send_outcome` is the opposite: its consent is the operator reading the exact
-message in the Send-reply modal, and a headless run has no modal. Nothing
-stops a binding from *naming* `send_outcome` as its target, though, so the
-rule "no confirmation, no send" cannot live in the UI.
+The rules that make it safe. A predicate can only **subtract**: the entries
+written in the file are the ceiling, so "what can this agent do, at most" is
+still answerable by reading it. Everything **fails closed**: a predicate that
+throws, or a session with no caller context, excludes the entry rather than
+granting it. And the one thing to get right: `ctx.context` is client-supplied
+(fine for curation, like picking a playbook); a predicate that exists to
+*withhold* something must read verified facts: `ctx.claims` (JWT) or, as
+here, `humanPresent`. This demo runs with identity `none`, so its gate reads
+`humanPresent`; a real deployment with JWT auth gates roles on `claims`.
 
-So the policy moves to the platform layer, again. This is step 6's move,
-repeated for a new caller class: the
-[`outbound-reply-guard`](hooks/outbound-reply-guard/index.mjs) hook now blocks
-`send_message` whenever the run's **verified** trigger source is an automation
-or a webhook (`ctx.caller.source`, from the authenticated request, so a
-request body can't spoof it). A scheduled run can sync, analyze, and stage all
-it wants; the moment it tries to email a broker, the platform says no. The
-confirm gate is no longer a property of the modal: it is a property of the
-send.
+Memory, finally. `amodal.json` set `memory.enabled: false` for nine steps,
+with a reason: triage state lives in the stores, and a triage must stay a pure
+function of them. That reason still stands, and enabling memory doesn't touch
+it, because memory holds a different kind of thing: the desk's standing
+guidance. "We're not writing vacant buildings this quarter." "Keep broker
+replies short." Statements an operator makes once and expects to hold next
+week, in a new session. Memory keeps one fact per entry, recalled into the
+system prompt across sessions, capped (`maxEntries: 50`) and editable through
+the built-in memory tool (`editableBy: "any"`). The
+[prompt](agents/default/AGENT.md) draws the line: guidance in memory, facts in
+stores, and the stores and the underwriting guide win on any conflict.
 
-See the diff: `diff -r -x steps -x node_modules -x dist steps/09-model-delegation .`
+See the diff: `diff -r -x steps -x node_modules -x dist steps/10-automations .`
 
 ## How it works
 
@@ -170,7 +178,8 @@ tools and the reviewer subagent); undeclared calls fail closed:
    chat, and the UI refetches its `useStoreQuery` data. The
    `ready-to-quote-guard` hook backstops that last rule for every writer.
 
-What-if questions take a different path. They don't match the `analyze`
+What-if questions take a different path (and only for a present human: the
+dispatch entry is conditional in `agent.ts`). They don't match the `analyze`
 trigger, so they reach the model, and the chat prompt tells it to delegate:
 read the submission's rows from the stores, then dispatch the
 underwriting-reviewer via `call_subagent` with the rows as `input` and the
@@ -201,7 +210,7 @@ stores for later runs.
 | Path                                                  | What it is                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `amodal.json`                                         | Manifest: four stores, the `gmail` package, and `runtimeApp: { custom: true }`.                                                |
-| `agents/default/`                                     | The chat agent (`agent.json` + `AGENT.md`): the implicit default surface; its config scopes the session's tools, stores, and now its dispatchable `subagents`. |
+| `agents/default/`                                     | The chat agent: `AGENT.md` (prompt), `agent.json` (stores), and `agent.ts`, the code form whose tool/subagent entries carry `humanPresent` conditionals. |
 | `agents/underwriting-reviewer/`                       | The reviewer subagent that scores against the underwriting guide. Its `agent.json` grants `claims_stats` + `load_knowledge`.   |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
 | `amodal/tools/analyze_submission/`                    | The composite triage tool (`tool.json` + `handler.ts`): declares its `uses` (store tools + the reviewer) and the `analyze` regex trigger. |
@@ -211,7 +220,7 @@ stores for later runs.
 | `amodal/tools/sync_submissions/`                      | Durable invoke-lane tool for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                 |
 | `amodal/tools/send_outcome/`                          | Durable invoke-lane tool for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                       |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage behind the composite tool: both entry points run it, so they can't drift.                                    |
-| `amodal/_types/tool-context.ts`                       | Vendored custom-tool types (`CustomToolContext` / `ToolDefinition`), kept local so the example typechecks offline.             |
+| `amodal/_types/`                                      | Vendored runtime types (`CustomToolContext` / `ToolDefinition`, `AgentDefinition` / `AgentSurfaceContext`), kept local so the example typechecks offline. |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
 | `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`.                |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
@@ -269,20 +278,24 @@ connection loads non-fatally, so every step works offline:
    `sync_submissions` once a day with no UI open; new broker mail is already
    filed when the operator arrives. The binding is visible (and can be paused)
    in the platform's Automations page as well as through the toggle.
+6. Tell the chat something meant to last: `We're not writing vacant buildings
+   this quarter — remember that.` The agent saves one memory entry. Open a
+   fresh chat session and ask `what's our current appetite guidance?`: the
+   entry is back in the prompt, across sessions, without a store row. Ask it
+   to forget and the entry is removed (`editableBy: "any"`).
 
 - `sub_bistro_ember` · `sub_cascade_printworks` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
-See the gate hold, in one request. A binding will happily *name* the send tool
-as its target; the platform hook is what stops it. Schedule
-`{"target": {"kind": "tool", "ref": "send_outcome"}}` through
-`POST /api/automations` (or `useAutomation().schedule('send_outcome', ...)`)
-against a triaged submission and watch the run fail at the send:
-`outbound-reply-guard` blocks `send_message` because the verified trigger
-source is an automation, with no human present to confirm. The triage rule
-from step 6 didn't help here (the submission WAS triaged); the caller rule is
-what held. (Step 9's version of the same experiment: delete the `"subagents"`
-line from `agents/default/agent.json` and the what-if dispatch disappears with
-it.)
+See the surface change with the caller. The same deployed agent holds
+`seed_examples` and the reviewer dispatch when an operator chats, and neither
+when a scheduled binding runs it: both entries in
+`agents/default/agent.ts` are conditional on `ctx.humanPresent`, which the
+platform sets from how the run was triggered. Delete a `conditional` and the
+entry becomes unconditional; delete the entry and no caller ever holds it —
+the file is the ceiling. (Step 10's version of the same lesson, one layer
+down: schedule `send_outcome` as an automation target and watch
+`outbound-reply-guard` block the send because the verified trigger source is
+an automation.)
 
 To talk to a real mailbox, copy `.env.example` to `.env` and set
 `GMAIL_ACCESS_TOKEN` (+ `GMAIL_FROM_ADDRESS` to send). See
@@ -306,8 +319,8 @@ npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src
   the token / from-address / dev-outbox to env vars. `.env.example` documents them,
   all optional, unset runs offline.
 - `amodal.json` manifest: the four stores, the `gmail` package, and
-  `runtimeApp`. The chat surface itself is `agents/default/` (its `agent.json`
-  scopes the session's tools, stores, and dispatchable `subagents`; its
+  `runtimeApp`. The chat surface itself is `agents/default/` (`agent.json` +
+  `agent.ts` scope the session's tools, stores, and dispatchable `subagents`;
   `AGENT.md` is the prompt).
 - `amodal/tools/analyze_submission/tool.json`: the composite triage tool. Its
   `uses` block is the reviewable list of everything the flow may compose
@@ -323,6 +336,9 @@ npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src
   whose verified trigger source is an automation or webhook).
 - `evals/*.md`: the eval suite, grown step by step; `whatif-inspection-received.md`
   pins the dispatch path. Re-run it after any edit here.
-- `amodal.json` sets `memory.enabled: false`. Durable state lives in
-  the stores, so each triage is a pure function of what is in them and there is
-  nothing to carry across sessions in conversation memory.
+- `amodal.json` `memory`: enabled, `editableBy: "any"`, `maxEntries: 50`.
+  Memory holds the desk's standing guidance; triage state stays in the stores,
+  so each triage remains a pure function of what is in them.
+- `agents/default/agent.ts`: the conditional surface. Edit the predicates to
+  change which callers hold `seed_examples` and the reviewer dispatch; the
+  entries written there are the ceiling, and a predicate can only subtract.

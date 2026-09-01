@@ -4,6 +4,8 @@
   "runtimeApp": { "custom": true },
   "packages": ["@amodalai/gmail-connection-driver"],
   "memory": {
-    "enabled": false
+    "enabled": true,
+    "editableBy": "any",
+    "maxEntries": 50
   }
 }
