@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useToolRun,
   useAutomation,
@@ -391,9 +391,12 @@ interface Pipeline {
   findings: FindingRow[];
 }
 
+const EMPTY_PIPELINE: Pipeline = { submissions: [], findings: [] };
+
 export default function App() {
   const { runtimeUrl } = useAmodalContext();
   const [desk, setDesk] = useState(initialDesk);
+  const scopeRef = useRef({ desk });
   const chatClient = useMemo(
     () => new RuntimeClient({ runtimeUrl, getToken: async () => "" }),
     [runtimeUrl],
@@ -403,11 +406,9 @@ export default function App() {
   const pipelineQ = useToolRun("list_pipeline", { scopeId: desk });
   const sync = useToolRun("sync_submissions", { scopeId: desk });
   const sendReply = useToolRun("send_outcome", { scopeId: desk });
-  const [pipeline, setPipeline] = useState<Pipeline>({
-    submissions: [],
-    findings: [],
-  });
+  const [pipeline, setPipeline] = useState<Pipeline>(EMPTY_PIPELINE);
   const [replyTarget, setReplyTarget] = useState<{
+    desk: string;
     s: SubmissionRow;
     finding: FindingRow;
   } | null>(null);
@@ -425,18 +426,26 @@ export default function App() {
   // The invoke lane's response carries the tool's return value as `result`;
   // the SDK's ToolRunResult type doesn't declare it yet, hence the cast.
   async function refetch() {
+    const scope = scopeRef.current;
+    if (scope.desk !== desk) return;
     const res = await pipelineQ.run({});
     const data = (res as { result?: Pipeline }).result;
-    if (data) setPipeline(data);
+    if (data && scopeRef.current === scope) setPipeline(data);
   }
 
   useEffect(() => {
-    setPipeline({ submissions: [], findings: [] });
     refetch().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desk]);
 
   function onPickDesk(id: string) {
+    if (id === desk) return;
+    scopeRef.current = { desk: id };
+    setPipeline(EMPTY_PIPELINE);
+    setReplyTarget(null);
+    pipelineQ.reset();
+    sync.reset();
+    sendReply.reset();
     setDesk(id);
     try {
       localStorage.setItem("uw-desk", id);
@@ -451,7 +460,7 @@ export default function App() {
   }
 
   async function onConfirmSend() {
-    if (!replyTarget) return;
+    if (!replyTarget || replyTarget.desk !== desk) return;
     try {
       await sendReply.run({ submission_id: replyTarget.s.submission_id });
       await refetch();
@@ -535,7 +544,7 @@ export default function App() {
                 onAnalyzed={refetch}
                 onReply={(sub, finding) => {
                   sendReply.reset?.();
-                  setReplyTarget({ s: sub, finding });
+                  setReplyTarget({ desk, s: sub, finding });
                 }}
               />
             ))}
