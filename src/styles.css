@@ -247,6 +247,26 @@ code {
   gap: 16px;
 }
 
+.head__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.autosync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.autosync.muted {
+  color: var(--muted);
+  cursor: default;
+}
+
 .btn--ghost {
   background: var(--surface);
   color: var(--accent);

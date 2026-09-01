@@ -4,7 +4,8 @@ An agent that triages commercial insurance submissions against an underwriting
 guide: a reviewer subagent (code-called for the saved triage, model-dispatched
 for what-if reviews), one knowledge file, four stores, an eval suite, a
 custom single-screen UI, a Gmail connection whose read-only surface syncs
-submissions in and whose confirm-gated surface emails outcomes back, guardrail
+submissions in and whose confirm-gated surface emails outcomes back (with a
+daily auto-sync automation that needs no UI open), guardrail
 hooks, and two custom tools: a composite `analyze_submission` tool that runs
 the deterministic triage around the subagent, and a pure `claims_stats` tool
 the reviewer calls for the claims arithmetic. The agent logic runs on the
@@ -15,7 +16,7 @@ agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
 `request-info`, `refer`, or `decline`), saves it, and, on the operator's
 confirmation, emails it back to the broker.
 
-This is **step 9** of a guided, incremental series. See
+This is **step 10** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
 
 > Fictional demo. The agent recommends a workflow status and conditions only.
@@ -35,9 +36,9 @@ always the current step**. Two ways to use it:
 - Diff two adjacent steps to see precisely what that one concept changed:
   `diff -r steps/05-custom-ui steps/06-guardrail-hooks`. To diff the last
   snapshot against the current step (the root):
-  `diff -r -x steps -x node_modules -x dist steps/08-custom-tool .`
+  `diff -r -x steps -x node_modules -x dist steps/09-model-delegation .`
 
-**You are here: step 9**, the repo root. This README describes the app at
+**You are here: step 10**, the repo root. This README describes the app at
 this step.
 
 | Step                                                    | What you learn                                                                                                 |
@@ -50,69 +51,56 @@ this step.
 | [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
 | [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
 | [`steps/08`](steps/08-custom-tool/)                     | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
-| **step 9** (repo root, you are here)                    | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`, vs. the code-called reviewer |
-| step 10 _(planned)_                                     | Background automations: scheduled and webhook runs that need no UI open, and what a confirm gate means with no human present |
+| [`steps/09`](steps/09-model-delegation/)                | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`                   |
+| **step 10** (repo root, you are here)                   | Background automations: scheduled and webhook runs that need no UI open, and what a confirm gate means with no human present |
 | step 11 _(planned)_                                     | Memory and conditional surfaces: one deployed agent whose capabilities vary per caller (`claims`, `humanPresent`)          |
 | step 12 _(planned)_                                     | Embedding & multi-tenancy: the agent in your own app, with your auth and a `scope_id` per tenant               |
 
 > See [`steps/README.md`](steps/README.md) for how the step snapshots are
 > maintained and how new steps are added.
 
-## The one idea this step teaches: model-initiated delegation
+## The one idea this step teaches: background automations
 
-The underwriting-reviewer subagent has been in the app since step 3, but only
-code has ever dispatched it: `analyze_submission` calls it via
-`ctx.callSubagent`, at a fixed point in a fixed flow. Step 9 gives the chat
-agent the same specialist, dispatched by the model itself, for the questions
-no authored flow anticipates.
+Everything the app does so far starts with someone present: a chat message, a
+button click, an operator confirming a modal. Step 10 makes one flow run with
+nobody there, and then asks the question that raises: what does a confirm gate
+mean when there is no one to confirm?
 
-The gap. An operator asks: "if Bistro Ember's fire-safety inspection had been
-received, what would the recommendation be?" Nothing in the stores changed, so
-re-running `analyze_submission` answers the wrong question, and the chat model
-answering from its own judgment would bypass everything the reviewer enforces:
-the underwriting guide, the `claims_stats` arithmetic, the output contract.
-The judgment exists, authored and evaled, one hop away. What's missing is a
-way for the model to reach it.
+The gap. Broker mail arrives around the clock, but the inbox only syncs when
+an operator clicks **Sync inbox**. The morning pipeline should already hold
+last night's submissions. That is not a new tool: `sync_submissions` already
+does the work. It is the same tool on a schedule.
 
-Why not another custom tool? A `what_if` tool would have to anticipate every
-hypothetical shape as schema fields: a received document, a removed claim, a
-different building value. The hypothesis arrives in natural language, and
-turning natural language into a well-posed task for a specialist is exactly
-what the model is for. So the model decides _when_ to delegate and _phrases_
-the hypothetical; the specialist it reaches stays authored, prompted, and
-scoped.
+What an automation is. A platform-managed **binding**: a target (an agent
+prompt, a subagent, or a durable tool), a schedule (`cron`, a coarse `every`,
+or a one-time `at`), and an enabled flag. The UI's **Auto-sync daily** toggle
+creates one with the React SDK's `useAutomation()`:
+`schedule('sync_submissions', { schedule: { every: '1d' } })` posts the
+binding, and the platform's automation worker reconciles it into a scheduler
+and fires the run through the same durable queue lane the buttons use. No UI
+needs to be open; nothing is polled from the browser. Webhook-triggered
+bindings are the same row with a webhook trigger in place of a schedule, for
+runs an external event starts.
 
-What model-initiated delegation is. `call_subagent` is a runtime tool the
-model can call with a specialist's name, a `task`, and structured `input`. The
-subagent runs in its own isolated context with its own `AGENT.md` prompt and
-its own tool grants ([`claims_stats` and `load_knowledge`](agents/underwriting-reviewer/agent.json)),
-and returns its final text: the same JSON contract the composite parses. The
-chat agent's context stays small; the reviewer's discipline stays intact.
+What to schedule, and what never to. `sync_submissions` is the right target
+because everything about it already tolerates running unattended: it reads a
+read-only surface, files idempotently, and falls back harmlessly offline.
+`send_outcome` is the opposite: its consent is the operator reading the exact
+message in the Send-reply modal, and a headless run has no modal. Nothing
+stops a binding from *naming* `send_outcome` as its target, though, so the
+rule "no confirmation, no send" cannot live in the UI.
 
-The grant is explicit, again. `call_subagent` is not ambient: it registers
-only for the specialists the agent's surface declares. Exposing the reviewer
-to the chat agent is a one-line, reviewable diff in
-[`agent.json`](agents/default/agent.json):
-`"subagents": ["underwriting-reviewer"]`, the exact shape of step 8's
-`"tools": ["claims_stats"]` grant, one level up.
+So the policy moves to the platform layer, again. This is step 6's move,
+repeated for a new caller class: the
+[`outbound-reply-guard`](hooks/outbound-reply-guard/index.mjs) hook now blocks
+`send_message` whenever the run's **verified** trigger source is an automation
+or a webhook (`ctx.caller.source`, from the authenticated request, so a
+request body can't spoof it). A scheduled run can sync, analyze, and stage all
+it wants; the moment it tries to email a broker, the platform says no. The
+confirm gate is no longer a property of the modal: it is a property of the
+send.
 
-Two callers, one specialist. The code path hands the reviewer everything as
-input: the guide text and the authoritative missing-docs list, computed
-deterministically. A model dispatch can't be trusted to paste a 5k-token guide
-verbatim, so the reviewer covers the difference itself: when
-`underwriting_guide` is absent it loads the knowledge document with
-`load_knowledge`, and when `missing_required_documents` is absent it reads
-completeness from `documents` plus what the task says to assume. Same
-specialist, same output contract, two calling conventions.
-
-The boundary it draws. A what-if is conversational and is never saved: saved
-findings come only from `analyze_submission`, the chat prompt says so, and the
-`ready-to-quote-guard` hook still gates every writer regardless. The
-[`whatif-inspection-received`](evals/whatif-inspection-received.md) eval pins
-all of it: the dispatch happens, the answer is labeled hypothetical, and no
-store is written.
-
-See the diff: `diff -r -x steps -x node_modules -x dist steps/08-custom-tool .`
+See the diff: `diff -r -x steps -x node_modules -x dist steps/09-model-delegation .`
 
 ## How it works
 
@@ -142,6 +130,10 @@ The UI buttons:
   [`send_outcome`](amodal/tools/send_outcome/handler.ts), a durable tool on
   the direct-invoke lane (Gmail confirm surface): emails the decision back to
   the broker, only after the operator confirms the exact message.
+- the **Auto-sync daily** toggle → `useAutomation()`: creates (then
+  enables/disables) a platform-managed binding that runs `sync_submissions`
+  once a day with no UI open. The management surface lives in the cloud
+  runtime, so locally the toggle degrades to a "cloud only" note.
 
 Both buttons call `POST /api/tools/<name>/run` via `useToolRun`; the
 `{"kind": "invoke"}` trigger in each tool's `tool.json` is the opt-in to that
@@ -192,9 +184,11 @@ submission + its finding, composes the broker email, and calls `send_message`.
 The `outbound-reply-guard` hook blocks that send if the submission was never
 triaged: the confirm policy, made true for every caller.
 
-How do submissions arrive now? The primary path is **Sync inbox**
-(`sync_submissions`, the read-only surface): with a mailbox connected it reads
-real broker mail. With none, it loads the five demo submissions from the dataset.
+How do submissions arrive now? The primary path is `sync_submissions` (the
+read-only surface), fired by the **Sync inbox** button or, once **Auto-sync
+daily** is on, by the scheduled binding with nobody watching: with a mailbox
+connected it reads real broker mail. With none, it loads the five demo
+submissions from the dataset.
 The `seed` chat command still works as an offline shortcut: it's a regex
 trigger on the `seed_examples` tool, so a chat message fires it, and it's
 idempotent, safe to resend. Either way, a run doesn't see its own uncommitted
@@ -222,8 +216,8 @@ stores for later runs.
 | `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`.                |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
-| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a submission is triaged.                                                 |
-| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useToolRun` (Sync/Send) + the chat-trigger Analyze button, the Send-reply confirm modal. |
+| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
+| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useToolRun` (Sync/Send) + the chat-trigger Analyze button, the Send-reply confirm modal, the `useAutomation()` Auto-sync toggle. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 
@@ -271,19 +265,24 @@ connection loads non-fatally, so every step works offline:
    message in the modal and **Confirm**. That operator confirmation is the gate
    on the write surface. Offline, the send is captured by the dev outbox
    (`GMAIL_DEV_OUTBOX`). With `GMAIL_FROM_ADDRESS` set it goes out over Gmail.
+5. In the cloud, flip **Auto-sync daily** on. The binding it creates runs
+   `sync_submissions` once a day with no UI open; new broker mail is already
+   filed when the operator arrives. The binding is visible (and can be paused)
+   in the platform's Automations page as well as through the toggle.
 
 - `sub_bistro_ember` · `sub_cascade_printworks` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
-See the grant's value in one edit. The whole delegation lives in one line of
-the chat agent's config, so removing it takes the capability away: delete the
-`"subagents"` line from `agents/default/agent.json`. Redeploy and ask the
-what-if again: with no `call_subagent` registered, the model has no path to
-the reviewer and must either answer from its own judgment (unguided, no
-`claims_stats`, no guide discipline) or decline. That contrast is the lesson:
-the specialist is a granted capability, not a prompt convention. Restore with
-`git checkout main -- agents/default/agent.json`. (Step 8's version of the
-same experiment: empty the reviewer's `"tools"` list and watch the claims
-window drift to the model's training-data sense of what year it is.)
+See the gate hold, in one request. A binding will happily *name* the send tool
+as its target; the platform hook is what stops it. Schedule
+`{"target": {"kind": "tool", "ref": "send_outcome"}}` through
+`POST /api/automations` (or `useAutomation().schedule('send_outcome', ...)`)
+against a triaged submission and watch the run fail at the send:
+`outbound-reply-guard` blocks `send_message` because the verified trigger
+source is an automation, with no human present to confirm. The triage rule
+from step 6 didn't help here (the submission WAS triaged); the caller rule is
+what held. (Step 9's version of the same experiment: delete the `"subagents"`
+line from `agents/default/agent.json` and the what-if dispatch disappears with
+it.)
 
 To talk to a real mailbox, copy `.env.example` to `.env` and set
 `GMAIL_ACCESS_TOKEN` (+ `GMAIL_FROM_ADDRESS` to send). See
@@ -320,7 +319,8 @@ npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src
   in `underwriting-guide.md`. The reviewer's `agent.json` `tools` list is the grant.
 - `hooks/*/hook.json`: the guards' config: `ready-to-quote-guard` (which write
   tools it gates, which recommendation it blocks on missing docs) and
-  `outbound-reply-guard` (which send tool it gates).
+  `outbound-reply-guard` (which send tool it gates; it also blocks any send
+  whose verified trigger source is an automation or webhook).
 - `evals/*.md`: the eval suite, grown step by step; `whatif-inspection-received.md`
   pins the dispatch path. Re-run it after any edit here.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in

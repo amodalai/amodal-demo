@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useStoreQuery,
   useToolRun,
+  useAutomation,
   useAmodalContext,
   ChatWidget,
   RuntimeClient,
@@ -29,6 +30,80 @@ interface FindingRow {
   cards?: Array<{ category: string; status: string; note: string }>;
   missing_info: string[];
   conditions: string[];
+}
+
+// The management surface returns more; the toggle needs only these fields.
+interface AutoSyncBinding {
+  id: string;
+  enabled: boolean;
+  tool?: string;
+}
+
+/**
+ * The step-10 control: a platform-managed automation binding that runs
+ * `sync_submissions` on a daily cadence with no UI open and no human present.
+ * `schedule` creates the binding; the checkbox then flips `enabled`. The
+ * management surface (list/enable/disable) is wired in the cloud runtime;
+ * locally it 404s, so the control degrades to a note instead of breaking.
+ */
+function AutoSyncToggle() {
+  const auto = useAutomation();
+  const [binding, setBinding] = useState<AutoSyncBinding | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "unavailable">(
+    "loading",
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    const all = (await auto.list()) as AutoSyncBinding[];
+    setBinding(all.find((a) => a.tool === "sync_submissions") ?? null);
+  }
+
+  useEffect(() => {
+    refresh()
+      .then(() => setState("ready"))
+      .catch(() => setState("unavailable"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (state === "loading") return null;
+  if (state === "unavailable") {
+    return <span className="autosync muted">Auto-sync: cloud only</span>;
+  }
+
+  const on = binding?.enabled === true;
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      if (!binding) {
+        await auto.schedule("sync_submissions", {
+          schedule: { every: "1d" },
+          label: "Daily inbox sync",
+        });
+      } else if (on) {
+        await auto.disable(binding.id);
+      } else {
+        await auto.enable(binding.id);
+      }
+      await refresh();
+    } catch {
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <label className="autosync" title="Sync the broker inbox once a day, with no UI open.">
+      <input
+        type="checkbox"
+        checked={on}
+        disabled={busy}
+        onChange={() => void toggle()}
+      />
+      Auto-sync daily
+    </label>
+  );
 }
 
 const REC_LABEL: Record<string, string> = {
@@ -338,9 +413,12 @@ export default function App() {
       <header className="head">
         <div className="head__bar">
           <h1>Underwriting Review</h1>
-          <button className="btn" disabled={isSyncing} onClick={onSync}>
-            {isSyncing ? "Syncing…" : "Sync inbox"}
-          </button>
+          <div className="head__actions">
+            <AutoSyncToggle />
+            <button className="btn" disabled={isSyncing} onClick={onSync}>
+              {isSyncing ? "Syncing…" : "Sync inbox"}
+            </button>
+          </div>
         </div>
         <p className="sub">
           Triage commercial-property submissions against the fictional

@@ -14,7 +14,8 @@ duplicated here.
 | `06-guardrail-hooks/`      | Guardrail hooks: hard rules at the platform layer               |
 | `07-gmail-connection/`     | External connection, read-only vs. confirm surfaces             |
 | `08-custom-tool/`          | Writing a custom tool                                           |
-| _(root)_                   | Step 9: model-initiated delegation (`call_subagent`)            |
+| `09-model-delegation/`     | Model-initiated delegation (`call_subagent`)                    |
+| _(root)_                   | Step 10: background automations, and the confirm gate with no human present |
 
 ## Using the steps
 
@@ -25,7 +26,7 @@ duplicated here.
   ```sh
   diff -r steps/05-custom-ui steps/06-guardrail-hooks
   # last snapshot vs. the current step (the repo root):
-  diff -r -x steps -x node_modules -x dist steps/08-custom-tool .
+  diff -r -x steps -x node_modules -x dist steps/09-model-delegation .
   ```
 
 ## Maintaining this layout
