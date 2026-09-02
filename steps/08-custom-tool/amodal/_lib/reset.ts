@@ -11,11 +11,17 @@ interface ResetCtx {
  * (`assumeEmpty`) because the removes are not visible in this run.
  */
 export async function resetDemo(ctx: ResetCtx) {
-  const removed = {} as Record<keyof typeof STORE_KEYS, number>;
+  const stores = [];
   for (const [store, field] of Object.entries(STORE_KEYS)) {
-    const docs = rows<Record<string, unknown>>(
-      await ctx.callTool(`store__${store}__list`, { limit: 1000 }),
-    );
+    const result = await ctx.callTool(`store__${store}__list`, { limit: 1000 });
+    if ((result as { hasMore?: boolean }).hasMore) {
+      throw new Error(`Cannot reset ${store}: store contains more than 1000 rows`);
+    }
+    stores.push({ store, field, docs: rows<Record<string, unknown>>(result) });
+  }
+
+  const removed = {} as Record<keyof typeof STORE_KEYS, number>;
+  for (const { store, field, docs } of stores) {
     for (const d of docs) await ctx.callTool(`store__${store}__remove`, { key: d[field] });
     removed[store as keyof typeof STORE_KEYS] = docs.length;
   }

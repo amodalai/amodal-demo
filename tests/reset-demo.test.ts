@@ -30,3 +30,20 @@ test("removes every row in the four stores before seeding blind", async () => {
   assert.ok(names.lastIndexOf("store__risk_findings__remove") < names.indexOf("store__submissions__set"), "every remove precedes the first seed write");
   assertDeclared("reset_demo", names);
 });
+
+test("rejects a truncated store list before changing any store", async () => {
+  const calls: Array<[string, Record<string, unknown>]> = [];
+  await assert.rejects(
+    resetDemo({
+      async callTool(name, args) {
+        calls.push([name, args]);
+        if (name === "store__documents__list") {
+          return { documents: [], total: 1001, hasMore: true };
+        }
+        return { documents: [], total: 0, hasMore: false };
+      },
+    }),
+    /cannot reset documents: store contains more than 1000 rows/i,
+  );
+  assert.ok(calls.every(([name]) => name.endsWith("__list")));
+});
