@@ -4,32 +4,10 @@ import decide_submission from "../amodal/tools/decide_submission/handler.js";
 import send_outcome from "../amodal/tools/send_outcome/handler.js";
 import { updatedSubmission } from "../amodal/_lib/demo-data.js";
 import sync_submissions from "../amodal/tools/sync_submissions/handler.js";
+import submissions from "../amodal/stores/submissions.json";
 
 const NOW = new Date("2026-09-02T09:00:00.000Z");
-
-/** Every column `store__submissions__set` requires, from amodal/stores/submissions.json. */
-const COLUMNS = [
-  "submission_id",
-  "applicant_name",
-  "business_type",
-  "state",
-  "property_value_usd",
-  "annual_revenue_usd",
-  "status",
-  "recommendation",
-  "risk_score",
-  "analyzed_at",
-  "broker_email",
-  "reply_status",
-  "replied_at",
-  "decision",
-  "decision_note",
-  "decided_at",
-  "decided_by",
-  "requested_by",
-  "revision",
-  "created_at",
-];
+const COLUMNS = Object.keys(submissions.schema);
 
 /**
  * A row written before the decision, reply and revision columns entered the
