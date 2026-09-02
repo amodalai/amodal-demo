@@ -189,10 +189,11 @@ tools and the reviewer subagent); undeclared calls fail closed:
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding and won't let a packet with missing
    required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
-   stamps the submission, and reports: the model summarizes the tool result in
-   chat, and the UI refetches its table through `list_pipeline`. The
-   `ready-to-quote-guard` hook backstops that last rule for every writer. It also appends an `analyzed` row to the
-   `events` store, naming the recommendation and the score.
+   stamps the submission, and appends an `analyzed` row to the `events` store,
+   naming the recommendation and the score. It then reports: the model
+   summarizes the tool result in chat, and the UI refetches its table through
+   `list_pipeline`. The `ready-to-quote-guard` hook backstops the missing-docs
+   rule for every writer.
 
 What-if questions take a different path (and only for a present human: the
 dispatch entry is conditional in `agent.ts`). They don't match the `analyze`
@@ -263,7 +264,7 @@ underwriting guide file the reviewer subagent is given.
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
 | `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
 | `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. A desk picker scopes every request. |
-| `tests/`                                              | Unit tests for the seed and the reset (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up.        |
+| `tests/`                                              | Unit tests for the tool handlers, the shared rules, the guard hook, the UI modules, and the step snapshots (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 

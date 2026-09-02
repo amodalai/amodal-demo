@@ -114,9 +114,10 @@ This app still has two triggered custom tools:
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding (the model can't drop one) and won't let a
    packet with missing required docs be `ready-to-quote`. Then it writes a
-   `risk_findings` row, stamps the submission, and returns the result. It also appends an `analyzed` row to the
-   `events` store, naming the recommendation and the score: the finding holds
-   what the agent concluded, the trail holds that it concluded it and when.
+   `risk_findings` row, stamps the submission, and returns the result. It also
+   appends an `analyzed` row to the `events` store, naming the recommendation
+   and the score: the finding holds what the agent concluded, the trail holds
+   that it concluded it and when.
 
 The evals pin down the outcomes of that loop: each `analyze-*` eval sends the
 real chat message and asserts on the recommendation the agent reports.

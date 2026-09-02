@@ -92,9 +92,10 @@ This app has two triggered custom tools:
    missing-docs list into the finding (the model can't drop one) and won't let a
    packet with missing required docs be `ready-to-quote`. Then it writes a
    `risk_findings` row, stamps the submission, and returns the result, which
-   lands in the chat agent's context for reporting. It also appends an `analyzed` row to the
-   `events` store, naming the recommendation and the score: the finding holds
-   what the agent concluded, the trail holds that it concluded it and when.
+   lands in the chat agent's context for reporting. It also appends an
+   `analyzed` row to the `events` store, naming the recommendation and the
+   score: the finding holds what the agent concluded, the trail holds that it
+   concluded it and when.
 
 The code-vs-LLM split. The deterministic part (which required documents are
 missing) lives in code, and the judgment part (eligibility and the
