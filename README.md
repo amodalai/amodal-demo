@@ -3,8 +3,9 @@
 An agent that triages commercial insurance submissions against an
 underwriting guide, serving two isolated underwriting desks (a `scope_id` per
 desk) from one deployment: a reviewer subagent (code-called for the saved
-triage, model-dispatched for what-if reviews), one knowledge file, four
-stores, an eval suite, a custom single-screen UI, a Gmail connection whose
+triage, model-dispatched for what-if reviews), one knowledge file, five
+stores, an eval suite, a custom UI with a screen for the underwriter and a
+screen for the broker, a Gmail connection whose
 read-only surface syncs submissions in and whose confirm-gated surface emails
 outcomes back (with a daily auto-sync automation that needs no UI open),
 agent memory for each desk's standing guidance, a conditional surface that
@@ -48,10 +49,10 @@ this step.
 | Step                                                    | What you learn                                                                                                 |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | [`steps/01`](steps/01-skills-and-knowledge/)            | The runtime loop and context compiler, and the core primitives: skills and knowledge                           |
-| [`steps/02`](steps/02-stores/)                          | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                              |
+| [`steps/02`](steps/02-stores/)                          | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                              |
 | [`steps/03`](steps/03-code-vs-llm/)                     | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent |
 | [`steps/04`](steps/04-evals/)                           | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                |
-| [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                       |
+| [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                       |
 | [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
 | [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
 | [`steps/08`](steps/08-custom-tool/)                     | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
@@ -103,6 +104,15 @@ it is per desk automatically, because memory partitions by scope like
 everything else. Tell the Pacific desk "we're not writing vacant buildings"
 and the Atlantic desk never hears it: same agent, different institutional
 memory.
+
+Desks and personas are different axes. The desk is a runtime partition: it
+decides which rows exist and is enforced by the platform. The persona from
+step 5 is a screen role: it decides how those rows are shown and is enforced
+by nothing, because the runtime gives the custom UI no user identity. Every
+combination is valid, and picking a desk never changes what a role may do.
+What a role may not do is structural instead: `decide_submission` and
+`submit_submission` are in no agent's `tools` list, so the model cannot take
+either step on either desk.
 
 See the diff: `diff -r -x steps -x node_modules -x dist steps/11-memory-and-surfaces .`
 
@@ -181,7 +191,8 @@ tools and the reviewer subagent); undeclared calls fail closed:
    required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
    stamps the submission, and reports: the model summarizes the tool result in
    chat, and the UI refetches its table through `list_pipeline`. The
-   `ready-to-quote-guard` hook backstops that last rule for every writer.
+   `ready-to-quote-guard` hook backstops that last rule for every writer. It also appends an `analyzed` row to the
+   `events` store, naming the recommendation and the score.
 
 What-if questions take a different path (and only for a present human: the
 dispatch entry is conditional in `agent.ts`). They don't match the `analyze`
@@ -211,31 +222,47 @@ writes: `analyze` reads already-committed data from a prior seed or sync, and
 on fresh stores it falls back to the in-memory demo examples while seeding the
 stores for later runs.
 
+The UI carries the rest of the workflow, and none of it runs through chat.
+The rail switches between the underwriter and the broker: a screen role, not a
+permission, since the runtime gives the custom UI no user identity. What is
+enforced is that `decide_submission` and `submit_submission` are in no agent's
+`tools` list and have no trigger, so the model cannot record a decision or file
+paperwork whoever is looking. **Analyze all** pushes every un-analysed
+submission through a serial queue, and the same queue triages the desk once
+after the first load. **History** reads the `events` trail, each submission's
+detail screen shows its own slice of it, and **Guide** renders the same
+underwriting guide file the reviewer subagent is given.
+
 ## What's in here
 
 | Path                                                  | What it is                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `amodal.json`                                         | Manifest: four stores, the `gmail` package, and `runtimeApp: { custom: true }`.                                                |
+| `amodal.json`                                         | Manifest: five stores, the `gmail` package, and `runtimeApp: { custom: true }`.                                                |
 | `agents/default/`                                     | The chat agent: `AGENT.md` (prompt), `agent.json` (stores), and `agent.ts`, the code form whose tool/subagent entries carry `humanPresent` conditionals. |
 | `agents/underwriting-reviewer/`                       | The reviewer subagent that scores against the underwriting guide. Its `agent.json` grants `claims_stats` + `load_knowledge`.   |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
 | `amodal/tools/analyze_submission/`                    | The composite triage tool (`tool.json` + `handler.ts`): declares its `uses` (store tools + the reviewer) and the `analyze` regex trigger. |
+| `amodal/tools/decide_submission/`                     | The human decision, invoke-only and in no agent's tools: the model cannot call it.             |
+| `amodal/tools/submit_submission/`                     | The broker's filing, invoke-only: writes the packet and reviews it in one durable run.         |
 | `amodal/tools/seed_examples/`                         | The durable seeding tool: the UI runs it over the invoke lane on first open, the `seed` regex trigger runs it from chat.       |
-| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the four stores, then seeds blind.            |
+| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the five stores, then seeds blind.            |
 | `amodal/tools/claims-stats/`                          | The custom tool: deterministic claims arithmetic the reviewer calls mid-reasoning. Numbers, never verdicts.                    |
-| `evals/`                                              | The eval suite from step 4, grown with each step; `whatif-inspection-received` covers the new dispatch path. Re-run it before promoting. |
+| `evals/`                                              | The eval suite from step 4, grown with each step; `whatif-inspection-received` covers the new dispatch path. Re-run it before promoting. `never-decides` and `submission-history` cover the boundary the UI depends on. |
 | `amodal/tools/sync_submissions/`                      | Durable invoke-lane tool for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                 |
 | `amodal/tools/list_pipeline/`                         | Read-only invoke-lane tool behind the table: the scoped read, since direct store REST reads never see a scope's partition.     |
 | `amodal/tools/send_outcome/`                          | Durable invoke-lane tool for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                       |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage behind the composite tool: both entry points run it, so they can't drift.                                    |
 | `amodal/_lib/reset.ts`                                | `resetDemo`: the remove-then-seed sequence behind `reset_demo`.                                                                |
+| `amodal/_lib/decision.ts`                             | The decision rules, imported by both the handler and the modal so they cannot disagree.        |
+| `amodal/_lib/submit.ts`                               | `submitSubmission`: file the packet, record the event, review what the run already holds.      |
+| `amodal/_lib/events.ts`                               | `appendEvent`: the single writer for the `events` trail.                                       |
 | `amodal/_types/`                                      | Vendored runtime types (`CustomToolContext` / `ToolDefinition`, `AgentDefinition` / `AgentSurfaceContext`), kept local so the example typechecks offline. |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
-| `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`. All `deletable`, which registers the `__remove` tools the reset uses. |
+| `amodal/stores/`                                      | 5 store schemas: `submissions` (with `broker_email`, reply state, and the human decision), `documents`, `claims`, `risk_findings`, `events`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
 | `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
-| `src/`                                                | The custom React UI (Vite): one screen, a desk picker that scopes every request, `useToolRun` (pipeline/seed/reset/Sync/Send) + the chat-trigger Analyze button, the Send-reply and Reset confirm modals, the `useAutomation()` Auto-sync toggle. |
+| `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. A desk picker scopes every request. |
 | `tests/`                                              | Unit tests for the seed and the reset (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up.        |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
@@ -258,9 +285,9 @@ Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
 and the agent chat alongside it. It runs with no credentials: the Gmail
 connection loads non-fatally, so every step works offline:
 
-1. Open the submissions screen (the custom UI) and pick a desk. The five
-   demo submissions load into that desk's partition on first open. With
-   `GMAIL_ACCESS_TOKEN` set, **Sync inbox** reads the real broker inbox.
+1. Open the app and pick a desk. The five demo submissions load into that
+   desk's partition on first open and the desk triages itself, row by row.
+   With `GMAIL_ACCESS_TOKEN` set, **Sync inbox** reads the real broker inbox.
    **Reset demo data** puts the desk back to the demo dataset.
 2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
    missing-info list, and a claims line appear inline. (You can still triage from
@@ -274,27 +301,35 @@ connection loads non-fatally, so every step works offline:
    spots the repeat kitchen fires) and Cascade Print Works for the arithmetic
    half (three claims that look like a frequency problem until the real window
    places only one of them inside it, so it stays `ready-to-quote`).
-3. Ask a what-if in the chat: `For sub_bistro_ember: if the fire-safety
+3. Open an applicant for the full finding, the document packet, and the
+   submission's timeline, then **Decide**. A decline needs a note, and so does
+   a quote the agent did not recommend; a quote is refused outright while
+   required information is outstanding, in the modal and again in the tool.
+   Switch **Acting as** to the broker to file a submission, which comes back
+   reviewed in one run, and to resubmit one the underwriter asked more of.
+   **History** is the desk's whole event trail; **Guide** is the underwriting
+   guide the reviewer subagent reads.
+4. Ask a what-if in the chat: `For sub_bistro_ember: if the fire-safety
    inspection had been received, what would the recommendation likely be?`
    Watch the reasoning block: the model reads the rows from the stores, then
    dispatches the underwriting-reviewer with `call_subagent`, and reports the
    reviewer's hypothetical verdict. The table doesn't change: nothing was
    saved, and re-analyzing still yields the real (missing-inspection) triage.
-4. Click **Send reply** to email the outcome back to the broker. Review the exact
+5. Click **Send reply** to email the outcome back to the broker. Review the exact
    message in the modal and **Confirm**. That operator confirmation is the gate
    on the write surface. Offline, the send is captured by the dev outbox
    (`GMAIL_DEV_OUTBOX`). With `GMAIL_FROM_ADDRESS` set it goes out over Gmail.
-5. In the cloud, flip **Auto-sync daily** on. The binding it creates runs
+6. In the cloud, flip **Auto-sync daily** on. The binding it creates runs
    `sync_submissions` once a day with no UI open; new broker mail is already
    filed when the operator arrives. The binding is visible (and can be paused)
    in the platform's Automations page as well as through the toggle.
-6. Tell the chat something meant to last: `We're not writing vacant buildings
+7. Tell the chat something meant to last: `We're not writing vacant buildings
    this quarter — remember that.` The agent saves one memory entry. Open a
    fresh chat session and ask `what's our current appetite guidance?`: the
    entry is back in the prompt, across sessions, without a store row. Ask it
    to forget and the entry is removed (`editableBy: "any"`).
 
-7. Switch desks. The table empties, the chat starts fresh, and the memory
+8. Switch desks. The table empties, the chat starts fresh, and the memory
    guidance from step 6 is gone: the other desk is a different partition of
    everything. Sync it, triage it, teach it its own guidance. Switch back and
    the first desk is exactly as you left it.
@@ -320,8 +355,8 @@ To talk to a real mailbox, copy `.env.example` to `.env` and set
 npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
-npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src/)
-npm test           # unit tests for the seed and the reset (tests/)
+npm run typecheck  # typechecks the runtime code, the SPA, and every snapshot under steps/
+npm test           # unit tests for the tools, the rules, and the eight UI snapshots (tests/)
 ```
 
 ## Configuration
@@ -334,7 +369,7 @@ npm test           # unit tests for the seed and the reset (tests/)
 - `amodal/connections/gmail/spec.json`: binds the driver by `protocol` and maps
   the token / from-address / dev-outbox to env vars. `.env.example` documents them,
   all optional, unset runs offline.
-- `amodal.json` manifest: the four stores, the `gmail` package, and
+- `amodal.json` manifest: the five stores, the `gmail` package, and
   `runtimeApp`. The chat surface itself is `agents/default/` (`agent.json` +
   `agent.ts` scope the session's tools, stores, and dispatchable `subagents`;
   `AGENT.md` is the prompt).
@@ -366,4 +401,4 @@ npm test           # unit tests for the seed and the reset (tests/)
   `getToken`; set `scope: { requireScope: true }` in `amodal.json` there so
   unscoped requests fail. Stores that every tenant should share (reference
   data, catalogs) take `"shared": true` in their store definition; this demo's
-  four stores are all per-desk.
+  five stores are all per-desk.

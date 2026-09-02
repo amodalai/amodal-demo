@@ -7,10 +7,10 @@ duplicated here.
 | Folder                     | Concept                                                        |
 | -------------------------- | -------------------------------------------------------------- |
 | `01-skills-and-knowledge/` | Runtime loop, context compiler, skills, knowledge               |
-| `02-stores/`               | Stores and the generated CRUD tools                             |
+| `02-stores/`               | Stores, the generated CRUD tools, and an append-only event trail                             |
 | `03-code-vs-llm/`          | Deterministic code vs. LLM judgment                             |
 | `04-evals/`                | Evals as quality gates                                          |
-| `05-custom-ui/`            | Custom UI (`runtimeApp`) and UI-fired runs                      |
+| `05-custom-ui/`            | Custom UI (`runtimeApp`), roles and routes, and tools no agent holds                      |
 | `06-guardrail-hooks/`      | Guardrail hooks: hard rules at the platform layer               |
 | `07-gmail-connection/`     | External connection, read-only vs. confirm surfaces             |
 | `08-custom-tool/`          | Writing a custom tool                                           |

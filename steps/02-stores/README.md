@@ -1,7 +1,7 @@
 # Underwriting Review Example
 
 An agent that triages commercial insurance submissions against an underwriting
-guide: one skill, one knowledge file, and four stores, no code and no custom
+guide: one skill, one knowledge file, and five stores, no code and no custom
 UI. It runs entirely on the Amodal runtime. You deploy it and use it from the
 hosted chat.
 
@@ -35,23 +35,29 @@ current step**. Two ways to use it:
 | Step                           | What you learn                                                                                                     |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
-| `steps/02-stores`              | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                                  |
+| `steps/02-stores`              | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                                  |
 | `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
 | `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
-| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                           |
+| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                           |
 | `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
 | `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
 | repo root (step 8)             | Writing a custom tool the reviewer itself calls, when a prompt and a schema aren't enough                          |
 
 ## The one idea this step teaches: stores + generated CRUD tools
 
-Step 1 had no memory. Each triage lived and died in one message. Step 2 adds four
+Step 1 had no memory. Each triage lived and died in one message. Step 2 adds five
 stores, each a JSON schema under [`amodal/stores/`](amodal/stores/):
-`submissions`, `documents`, `claims`, and `risk_findings`. For every store Amodal
+`submissions`, `documents`, `claims`, `risk_findings`, and `events`. For every store Amodal
 generates a set of CRUD tools (`store__submissions__set`,
 `store__documents__query`, `store__risk_findings__get`, and so on) and hands them
 to the agent. Persisting and recalling data is now something the agent does with
 tools, no code required.
+
+Four of them are row tables: they hold the current state of a thing, and every
+write replaces what was there. `events` is the odd one out, an append-only trail
+of what happened to a submission and who did it, so the history survives the
+next write. Nothing in the demo can answer "who decided this, and when" from a
+table that only keeps the latest value.
 
 Still no custom tools and no custom UI: the manifest lists a `skills` array and a
 `stores` map, and the agent drives the rest.
@@ -84,10 +90,10 @@ nothing makes it.
 
 | Path                                 | What it is                                                              |
 | ------------------------------------ | ----------------------------------------------------------------------- |
-| `amodal.json`                        | Manifest: the chat agent (`session_types`) + its one skill + 4 stores.  |
+| `amodal.json`                        | Manifest: the chat agent (`session_types`) + its one skill + 5 stores.  |
 | `amodal/skills/underwriting-review/` | The LLM skill that scores against the underwriting guide.               |
 | `amodal/knowledge/underwriting-guide.md` | The fictional underwriting guide the skill reasons over.                |
-| `amodal/stores/`                     | 4 store schemas: `submissions`, `documents`, `claims`, `risk_findings`. |
+| `amodal/stores/`                     | 5 store schemas: `submissions`, `documents`, `claims`, `risk_findings`, `events`. |
 
 ## Example cases
 
@@ -145,11 +151,11 @@ No code, no custom UI, nothing to run locally.
 
 ## Configuration
 
-- `amodal/stores/*.json`: the four store schemas. The agent reads and writes
+- `amodal/stores/*.json`: the five store schemas. The agent reads and writes
   these through the CRUD tools Amodal generates from them.
 - `amodal/knowledge/underwriting-guide.md`: the underwriting rules the agent reasons over.
 - `amodal.json`: manifest: the chat agent (`session_types`), its one skill, and
-  the four stores. No third-party connectors required.
+  the five stores. No third-party connectors required.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in the stores, so
   each triage is a pure function of what is in them and there is nothing to
   carry across sessions in conversation memory.

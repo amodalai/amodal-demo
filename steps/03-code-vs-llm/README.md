@@ -1,7 +1,7 @@
 # Underwriting Review Example
 
 An agent that triages commercial insurance submissions against an underwriting
-guide: one knowledge file, four stores, two triggered custom tools, and a
+guide: one knowledge file, five stores, two triggered custom tools, and a
 reviewer subagent that holds the judgment. No custom UI. It runs entirely on
 the Amodal runtime. You deploy it and use it from the hosted chat.
 
@@ -35,10 +35,10 @@ this step.
 | Step                           | What you learn                                                                                                     |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
-| `steps/02-stores`              | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                                  |
+| `steps/02-stores`              | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                                  |
 | `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
 | `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
-| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                           |
+| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                           |
 | `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
 | `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
 | repo root (step 8)             | Writing a custom tool the reviewer itself calls, when a prompt and a schema aren't enough                          |
@@ -92,7 +92,9 @@ This app has two triggered custom tools:
    missing-docs list into the finding (the model can't drop one) and won't let a
    packet with missing required docs be `ready-to-quote`. Then it writes a
    `risk_findings` row, stamps the submission, and returns the result, which
-   lands in the chat agent's context for reporting.
+   lands in the chat agent's context for reporting. It also appends an `analyzed` row to the
+   `events` store, naming the recommendation and the score: the finding holds
+   what the agent concluded, the trail holds that it concluded it and when.
 
 The code-vs-LLM split. The deterministic part (which required documents are
 missing) lives in code, and the judgment part (eligibility and the
@@ -119,10 +121,11 @@ idempotent, safe to resend.)
 | `amodal/tools/seed_examples/`            | Loads the demo data into the stores (run once by sending `seed`).                      |
 | `amodal/tools/analyze_submission/`       | The core tool (load from stores → check in code → call the reviewer → record).         |
 | `amodal/knowledge/underwriting-guide.md` | The fictional underwriting guide the reviewer reasons over.                            |
-| `amodal/stores/`                         | 4 store schemas: `submissions`, `documents`, `claims`, `risk_findings`.                |
+| `amodal/stores/`                         | 5 store schemas: `submissions`, `documents`, `claims`, `risk_findings`, `events`.                |
 | `amodal/_lib/examples.ts`                | The demo dataset: companies + docs + claims (edit + redeploy to change).               |
 | `amodal/_lib/demo-data.ts`               | Hydrates `examples.ts` into the stores for `seed_examples` and the `analyze` fallback. |
 | `amodal/_lib/underwriting-analysis.ts`   | The shared triage flow: the code-vs-LLM split, made explicit.                          |
+| `amodal/_lib/events.ts`                  | `appendEvent`: the single writer for the `events` trail.                              |
 | `amodal/_types/tool-context.ts`          | Local stub of the runtime's custom-tool context types, so the example typechecks offline. |
 
 ## Example cases

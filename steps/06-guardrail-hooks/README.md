@@ -1,8 +1,8 @@
 # Underwriting Review Example
 
 An agent that triages commercial insurance submissions against an underwriting
-guide: one knowledge file, four stores, two triggered custom tools, a reviewer
-subagent, an eval suite, a custom single-screen React UI, and now a guardrail
+guide: one knowledge file, five stores, two triggered custom tools, a reviewer
+subagent, an eval suite, a custom React UI with a screen for the underwriter and a screen for the broker, and now a guardrail
 hook that enforces the one hard rule at the platform layer. It runs on the
 Amodal runtime, and the UI is a small React app the runtime serves for you.
 
@@ -36,10 +36,10 @@ at this step.
 | Step                           | What you learn                                                                                                     |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
-| `steps/02-stores`              | Stores, and the CRUD tools Amodal generates so an agent can read and persist data                                  |
+| `steps/02-stores`              | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                                  |
 | `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
 | `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
-| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, and tool runs fired from the UI                           |
+| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                           |
 | `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
 | `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
 | repo root (step 8)             | Writing a custom tool the reviewer itself calls, when a prompt and a schema aren't enough                          |
@@ -47,12 +47,13 @@ at this step.
 ## The one idea this step teaches: a guardrail hook (one rule, every writer)
 
 Step 3 established the demo's one hard rule, _a packet with a missing required
-document can never be `ready-to-quote`_, and enforced it in code, inside the
-analyze path. Step 5 quietly broke that guarantee's completeness: there are
-now several writers. The chat agent holds `rw` store tools and could be talked
-into stamping a submission directly. The UI fires the triage through the chat
-surface. Step 7 will add more tools, and every future one is another chance to
-forget the rule. Enforcing an invariant inside one handler protects one path.
+document can never be `ready-to-quote`, and can never be quoted_, and enforced
+it in code, inside the analyze path. Step 5 quietly broke that guarantee's
+completeness: there are now several writers. The chat agent holds `rw` store
+tools and could be talked into stamping a submission directly. The UI fires the
+triage through the chat surface, and `decide_submission` writes a human quote
+down the same path. Step 7 will add more tools, and every future one is another
+chance to forget the rule. Enforcing an invariant inside one handler protects one path.
 The rule is about the data, so it belongs where every path converges.
 
 What a hook is. A hook runs at the platform layer on every tool call,
@@ -69,14 +70,17 @@ store reader and the right to block), and _what happens if it crashes_
 (`failPolicy: "closed"`: an erroring guard blocks the write rather than waving
 it through). [`index.mjs`](hooks/ready-to-quote-guard/index.mjs) implements the
 policy: on any `store__submissions__set` / `store__risk_findings__set` carrying
-`recommendation: "ready-to-quote"`, read that submission's documents and
-block the write if a required document isn't `received`. Everything else
-passes through untouched.
+`recommendation: "ready-to-quote"` or `decision: "quote"`, read that
+submission's documents and block the write if a required document isn't
+`received`. One rule, both halves of the workflow: what the agent recommends
+and what a person decides. Everything else passes through untouched.
 
 Defense in depth, not a replacement. The analyze code still downgrades
-`ready-to-quote` itself (step 3's `record` stage), so the hook doesn't change
+`ready-to-quote` itself (step 3's `record` stage) and `decide_submission`
+refuses a blocked quote before it writes anything, so the hook doesn't change
 any happy path: on a healthy deploy it never fires. Code enforces the rule where
-the recommendation is computed, and the hook makes it an invariant of the stores. And
+the recommendation and the decision are made, and the hook makes it an invariant
+of the stores. And
 note the division of labor with step 4: evals detect a regression before you
 promote, and the hook prevents the bad write at runtime, whatever slipped
 through.
@@ -97,7 +101,7 @@ pattern fires the handler directly, no LLM round trip:
   → [`analyze_submission`](amodal/tools/analyze_submission/handler.ts) runs the
   triage and reports in chat.
 
-The **Analyze** button on the submissions screen fires the same
+The **Analyze** button on the pipeline fires the same
 `analyze <id>` command through the chat surface, so both surfaces run the
 identical path.
 
@@ -122,25 +126,41 @@ Both entry points run the same four-stage loop, in the shared
    `ready-to-quote-guard` hook backstops that last rule for every writer,
    not just this handler.
 
+The UI carries the rest of the workflow, and none of it runs through chat.
+The rail switches between the underwriter and the broker: a screen role, not a
+permission, since the runtime gives the custom UI no user identity. What is
+enforced is that `decide_submission` and `submit_submission` are in no agent's
+`tools` list and have no trigger, so the model cannot record a decision or file
+paperwork whoever is looking. **Analyze all** pushes every un-analysed
+submission through a serial queue, and the same queue triages the desk once
+after the first load. **History** reads the `events` trail, each submission's
+detail screen shows its own slice of it, and **Guide** renders the same
+underwriting guide file the reviewer subagent is given.
+
 ## What's in here
 
 | Path                                                  | What it is                                                                                    |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `amodal.json`                                         | Manifest: name, version, memory off, and `runtimeApp: { custom: true }`.                       |
 | `hooks/ready-to-quote-guard/`                         | **This step.** `preToolUse` guard enforcing the missing-docs rule for every writer.            |
-| `evals/`                                              | The eval suite from step 4: still green, the hook changes no happy path.                       |
+| `evals/`                                              | The eval suite from step 4: still green, the hook changes no happy path. `never-decides` and `submission-history` cover the boundary the UI depends on. |
 | `agents/default/`                                     | The chat agent: its prompt (`AGENT.md`) and its tools + store access (`agent.json`).           |
 | `agents/underwriting-reviewer/`                       | The scoped subagent that holds the underwriting judgment.                                      |
 | `amodal/tools/seed_examples/`                         | The durable seeding tool: the UI runs it over the invoke lane on first open, the `seed` regex trigger runs it from chat. |
-| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the four stores, then seeds blind. |
+| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the five stores, then seeds blind. |
 | `amodal/tools/analyze_submission/`                    | The triggered composite tool (load → check in code → call the reviewer → record).              |
+| `amodal/tools/decide_submission/`                     | The human decision, invoke-only and in no agent's tools: the model cannot call it.             |
+| `amodal/tools/submit_submission/`                     | The broker's filing, invoke-only: writes the packet and reviews it in one durable run.         |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage flow every surface runs, so they can't drift.                                |
 | `amodal/_lib/reset.ts`                                | `resetDemo`: the remove-then-seed sequence behind `reset_demo`.                                |
+| `amodal/_lib/decision.ts`                             | The decision rules, imported by both the handler and the modal so they cannot disagree.        |
+| `amodal/_lib/submit.ts`                               | `submitSubmission`: file the packet, record the event, review what the run already holds.      |
+| `amodal/_lib/events.ts`                               | `appendEvent`: the single writer for the `events` trail.                                       |
 | `amodal/_types/tool-context.ts`                       | Local stub of the runtime's custom-tool context types, so the example typechecks offline.      |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over.                                    |
-| `amodal/stores/`                                      | 4 store schemas: `submissions`, `documents`, `claims`, `risk_findings`. All `deletable`, which registers the `__remove` tools the reset uses. |
+| `amodal/stores/`                                      | 5 store schemas: `submissions`, `documents`, `claims`, `risk_findings`, `events`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                |
-| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useToolRun` (seed/reset) + `RuntimeClient.chatStream`, the Reset confirm modal. |
+| `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                      |
 
 ## Example cases
@@ -159,7 +179,7 @@ The four submissions shipped in `examples.ts`:
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
 and the agent chat alongside it.
 
-1. Open the submissions screen; the demo loads on first open, exactly as in
+1. Open the app; the demo loads on first open, exactly as in
    step 5. Analyze a row, see the finding.
    Nothing observable changed: the hook never fires on the healthy paths.
 2. Now try to break the rule. In chat, tell the agent something like:
