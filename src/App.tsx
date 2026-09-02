@@ -5,6 +5,7 @@ import {
   useAmodalContext,
   ChatWidget,
   RuntimeClient,
+  type ResolvedToolRun,
 } from "@amodalai/react";
 
 /**
@@ -229,6 +230,31 @@ async function runAnalyzeCommand(
   }
 }
 
+/**
+ * Run an invoke-lane tool and return its result. The SDK resolves a thrown
+ * handler error as `outcome.kind: "failed"` with the message in `reason`
+ * (prefixed by the runtime with the tool's name), so this turns it back into
+ * a rejection carrying the handler's own message.
+ */
+async function runTool<I, R = unknown>(
+  launcher: { run(input: I): Promise<ResolvedToolRun> },
+  input: I,
+): Promise<R | undefined> {
+  const res = (await launcher.run(input)) as ResolvedToolRun & { result?: R };
+  if (res.outcome.kind === "failed") {
+    throw new Error(
+      (res.outcome.reason ?? "The tool run failed.").replace(
+        /^Tool "[^"]+" failed: /,
+        "",
+      ),
+    );
+  }
+  return res.result;
+}
+
+const errorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
+
 function RecPill({ rec }: { rec?: string | null }) {
   if (!rec) return <span className="pill muted">Not analyzed</span>;
   return <span className={`pill rec-${rec}`}>{REC_LABEL[rec] ?? rec}</span>;
@@ -384,6 +410,44 @@ function ReplyModal({
   );
 }
 
+function ResetModal({
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  busy: boolean;
+  error?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+    >
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal__title">Reset demo data</h2>
+        <p className="sub">
+          This deletes every submission, document, claim, and finding on this
+          desk and reloads the demo. Continue?
+        </p>
+        {error ? <div className="banner error">{error}</div> : null}
+        <div className="modal__actions">
+          <button className="btn btn--ghost" disabled={busy} onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="btn" disabled={busy} onClick={onConfirm}>
+            {busy ? "Resetting…" : "Reset"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Pipeline {
   submissions: SubmissionRow[];
   findings: FindingRow[];
@@ -400,6 +464,12 @@ export default function App() {
   const pipelineQ = useToolRun("list_pipeline", { scopeId: desk });
   const sync = useToolRun("sync_submissions", { scopeId: desk });
   const sendReply = useToolRun("send_outcome", { scopeId: desk });
+  const seed = useToolRun("seed_examples", { scopeId: desk });
+  const reset = useToolRun("reset_demo", { scopeId: desk });
+  const seededDesks = useRef(new Set<string>());
+  const [seedError, setSeedError] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetError, setResetError] = useState<string | undefined>();
   const [pipeline, setPipeline] = useState<Pipeline>(EMPTY_PIPELINE);
   const [replyTarget, setReplyTarget] = useState<{
     desk: string;
@@ -408,6 +478,7 @@ export default function App() {
   } | null>(null);
   const isSyncing = sync.status === "running";
   const isSending = sendReply.status === "running";
+  const isResetting = reset.status === "running";
 
   const submissions = [...pipeline.submissions].sort((a, b) =>
     a.applicant_name.localeCompare(b.applicant_name),
@@ -417,14 +488,27 @@ export default function App() {
 
   // The direct store REST reads are scope-blind (agent-level partition), so
   // the table reads through the scoped list_pipeline invoke tool instead.
-  // The invoke lane's response carries the tool's return value as `result`;
-  // the SDK's ToolRunResult type doesn't declare it yet, hence the cast.
+  // A desk found empty loads the demo dataset, once per desk per page load.
   async function refetch() {
     const scope = scopeRef.current;
     if (scope.desk !== desk) return;
-    const res = await pipelineQ.run({});
-    const data = (res as { result?: Pipeline }).result;
-    if (data && scopeRef.current === scope) setPipeline(data);
+    const data = await runTool<Record<string, never>, Pipeline>(pipelineQ, {});
+    if (!data || scopeRef.current !== scope) return;
+    setPipeline(data);
+    if (data.submissions.length === 0 && !seededDesks.current.has(desk)) {
+      seededDesks.current.add(desk);
+      await runSeed();
+    }
+  }
+
+  async function runSeed() {
+    setSeedError(null);
+    try {
+      await runTool(seed, {});
+      await refetch();
+    } catch (err) {
+      setSeedError(errorMessage(err, "Loading the demo failed."));
+    }
   }
 
   useEffect(() => {
@@ -440,6 +524,9 @@ export default function App() {
     pipelineQ.reset();
     sync.reset();
     sendReply.reset();
+    seed.reset();
+    reset.reset();
+    setSeedError(null);
     setDesk(id);
     try {
       localStorage.setItem("uw-desk", id);
@@ -460,6 +547,19 @@ export default function App() {
       await refetch();
       setReplyTarget(null);
     } catch {}
+  }
+
+  // The reset seeds the desk itself, so refetch must not seed it again.
+  async function onReset() {
+    setResetError(undefined);
+    try {
+      await runTool(reset, {});
+      seededDesks.current.add(desk);
+      await refetch();
+      setConfirmReset(false);
+    } catch (err) {
+      setResetError(errorMessage(err, "The reset failed."));
+    }
   }
 
   return (
@@ -489,11 +589,22 @@ export default function App() {
             <button className="btn" disabled={isSyncing} onClick={onSync}>
               {isSyncing ? "Syncing…" : "Sync inbox"}
             </button>
+            <button
+              className="btn btn--ghost"
+              onClick={() => {
+                setReplyTarget(null);
+                setConfirmReset(true);
+              }}
+            >
+              Reset demo data
+            </button>
           </div>
         </div>
         <p className="sub">
           Triage commercial-property submissions against the fictional
-          underwriting guide. <em>Sync inbox</em> pulls submissions from the broker mailbox
+          underwriting guide. The demo dataset loads itself the first time a
+          desk opens; <em>Reset demo data</em> puts it back.{" "}
+          <em>Sync inbox</em> pulls submissions from the broker mailbox
           (read-only); <em>Analyze</em> scores one; <em>Send reply</em> emails
           the outcome back to the broker (a confirmed send). The agent
           recommends a workflow status for a human underwriter. It never binds
@@ -504,9 +615,21 @@ export default function App() {
             {sync.error.message ?? "Sync failed."}
           </div>
         ) : null}
+        {seedError ? (
+          <div className="banner error">
+            {seedError}{" "}
+            <button className="btn btn--ghost" onClick={() => void runSeed()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
       </header>
 
-      {submissions.length === 0 && pipelineQ.status === "running" ? (
+      {submissions.length === 0 && seed.status === "running" ? (
+        <div className="empty">
+          <p>Loading the demo…</p>
+        </div>
+      ) : submissions.length === 0 && pipelineQ.status === "running" ? (
         <div className="empty">
           <p>Loading the desk's pipeline…</p>
         </div>
@@ -514,10 +637,10 @@ export default function App() {
         <div className="empty">
           <p>No submissions on this desk yet.</p>
           <p className="sub">
-            Click <strong>Sync inbox</strong> to pull submissions from the
-            broker mailbox. With no mailbox connected, it loads the five demo
-            submissions instead. This screen refreshes automatically. (You can
-            also send <code>seed</code> in the chat.)
+            The demo dataset loads itself the first time a desk opens. Click{" "}
+            <strong>Reset demo data</strong> to load it again, or{" "}
+            <strong>Sync inbox</strong> to pull submissions from the broker
+            mailbox. This screen refreshes automatically.
           </p>
         </div>
       ) : (
@@ -565,6 +688,15 @@ export default function App() {
           error={sendReply.error?.message}
           onConfirm={onConfirmSend}
           onCancel={() => setReplyTarget(null)}
+        />
+      ) : null}
+
+      {confirmReset ? (
+        <ResetModal
+          busy={isResetting}
+          error={resetError}
+          onConfirm={() => void onReset()}
+          onCancel={() => setConfirmReset(false)}
         />
       ) : null}
 

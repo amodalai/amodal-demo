@@ -112,9 +112,11 @@ The two chat commands are triggers: a regex in the tool's own `tool.json`
 fires the tool from the request path, before the LLM sees the message, and
 the model then reports the tool's result:
 
-- send **`seed`** once → the
+- send **`seed`** → the
   [`seed_examples`](amodal/tools/seed_examples/tool.json) tool loads the demo
-  submissions, their documents, and their claims into the stores.
+  submissions, their documents, and their claims into the stores. The UI runs
+  the same tool over the invoke lane the first time a desk opens empty, so
+  the chat command only matters after something deleted a demo row.
 - send **`analyze sub_bistro_ember`** (or `triage` / `review` / `assess` + an id)
   → the [`analyze_submission`](amodal/tools/analyze_submission/tool.json)
   composite tool runs the triage. As it works it narrates the deterministic
@@ -126,6 +128,9 @@ The UI controls:
   Switching desks swaps the whole surface's data: table, chat, memory, and
   the auto-sync binding are all per-desk partitions of the same deployed
   agent.
+- **Reset demo data** → the [`reset_demo`](amodal/tools/reset_demo/tool.json)
+  tool, behind a confirm modal: it removes every row in the desk's four
+  stores and loads the demo dataset again.
 - the **Sync inbox** button →
   [`sync_submissions`](amodal/tools/sync_submissions/handler.ts), a durable
   tool on the direct-invoke lane (Gmail read-only surface): reads the broker
@@ -193,15 +198,16 @@ submission + its finding, composes the broker email, and calls `send_message`.
 The `outbound-reply-guard` hook blocks that send if the submission was never
 triaged: the confirm policy, made true for every caller.
 
-How do submissions arrive now? The primary path is `sync_submissions` (the
+How do submissions arrive? The first time a desk opens empty, the UI runs
+`seed_examples` over the invoke lane and the five demo submissions land in
+that desk's partition. Real mail comes through `sync_submissions` (the
 read-only surface), fired by the **Sync inbox** button or, once **Auto-sync
 daily** is on, by the scheduled binding with nobody watching: with a mailbox
-connected it reads real broker mail. With none, it loads the five demo
-submissions from the dataset.
-The `seed` chat command still works as an offline shortcut: it's a regex
-trigger on the `seed_examples` tool, so a chat message fires it, and it's
-idempotent, safe to resend. Either way, a run doesn't see its own uncommitted
-writes: `analyze` reads already-committed data from a prior sync or seed, and
+connected it reads real broker mail; with none it confirms the demo is
+already filed. **Reset demo data** empties the desk and seeds it again, and
+the `seed` chat command (a regex trigger on the same tool, idempotent) loads
+whatever is missing. Either way, a run doesn't see its own uncommitted
+writes: `analyze` reads already-committed data from a prior seed or sync, and
 on fresh stores it falls back to the in-memory demo examples while seeding the
 stores for later runs.
 
@@ -214,20 +220,23 @@ stores for later runs.
 | `agents/underwriting-reviewer/`                       | The reviewer subagent that scores against the underwriting guide. Its `agent.json` grants `claims_stats` + `load_knowledge`.   |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
 | `amodal/tools/analyze_submission/`                    | The composite triage tool (`tool.json` + `handler.ts`): declares its `uses` (store tools + the reviewer) and the `analyze` regex trigger. |
-| `amodal/tools/seed_examples/`                         | The seeding tool behind the `seed` trigger (offline shortcut).                                                                 |
+| `amodal/tools/seed_examples/`                         | The durable seeding tool: the UI runs it over the invoke lane on first open, the `seed` regex trigger runs it from chat.       |
+| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the four stores, then seeds blind.            |
 | `amodal/tools/claims-stats/`                          | The custom tool: deterministic claims arithmetic the reviewer calls mid-reasoning. Numbers, never verdicts.                    |
 | `evals/`                                              | The eval suite from step 4, grown with each step; `whatif-inspection-received` covers the new dispatch path. Re-run it before promoting. |
 | `amodal/tools/sync_submissions/`                      | Durable invoke-lane tool for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).                 |
 | `amodal/tools/list_pipeline/`                         | Read-only invoke-lane tool behind the table: the scoped read, since direct store REST reads never see a scope's partition.     |
 | `amodal/tools/send_outcome/`                          | Durable invoke-lane tool for **Send reply**: the Gmail confirm surface (`send_message`), operator-gated.                       |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage behind the composite tool: both entry points run it, so they can't drift.                                    |
+| `amodal/_lib/reset.ts`                                | `resetDemo`: the remove-then-seed sequence behind `reset_demo`.                                                                |
 | `amodal/_types/`                                      | Vendored runtime types (`CustomToolContext` / `ToolDefinition`, `AgentDefinition` / `AgentSurfaceContext`), kept local so the example typechecks offline. |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
-| `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`.                |
+| `amodal/stores/`                                      | 4 store schemas: `submissions` (now with `broker_email` + reply state), `documents`, `claims`, `risk_findings`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
 | `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
-| `src/`                                                | The custom React UI (Vite): one screen, a desk picker that scopes every request, `useToolRun` (pipeline/Sync/Send) + the chat-trigger Analyze button, the Send-reply confirm modal, the `useAutomation()` Auto-sync toggle. |
+| `src/`                                                | The custom React UI (Vite): one screen, a desk picker that scopes every request, `useToolRun` (pipeline/seed/reset/Sync/Send) + the chat-trigger Analyze button, the Send-reply and Reset confirm modals, the `useAutomation()` Auto-sync toggle. |
+| `tests/`                                              | Unit tests for the seed and the reset (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up.        |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 
@@ -249,11 +258,10 @@ Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
 and the agent chat alongside it. It runs with no credentials: the Gmail
 connection loads non-fatally, so every step works offline:
 
-1. Open the submissions screen (the custom UI), pick a desk, and click
-   **Sync inbox**. With no mailbox connected it loads the five demo
-   submissions from the dataset, into that desk's partition. With
-   `GMAIL_ACCESS_TOKEN` set it reads the real broker inbox. (Offline, you can
-   also send `seed` in the agent chat.)
+1. Open the submissions screen (the custom UI) and pick a desk. The five
+   demo submissions load into that desk's partition on first open. With
+   `GMAIL_ACCESS_TOKEN` set, **Sync inbox** reads the real broker inbox.
+   **Reset demo data** puts the desk back to the demo dataset.
 2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
    missing-info list, and a claims line appear inline. (You can still triage from
    chat with `analyze <id>`. Both enter through the same trigger.) The claims
@@ -313,13 +321,16 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src/)
+npm test           # unit tests for the seed and the reset (tests/)
 ```
 
 ## Configuration
 
-- `amodal/_lib/examples.ts`: the demo submissions that `seed` and the offline
-  **Sync inbox** fallback load. Edit it and redeploy to change the dataset. Each
-  entry is self-contained, with embedded `docs[]`, `claims[]`, and a `broker_email`.
+- `amodal/_lib/examples.ts`: the demo submissions the UI loads on first open
+  (and `seed`, **Reset demo data**, and the offline **Sync inbox** fallback).
+  Edit it and redeploy to change the dataset; click **Reset demo data** to see
+  the edit. Each entry is self-contained, with embedded `docs[]`, `claims[]`,
+  and a `broker_email`.
 - `amodal/connections/gmail/spec.json`: binds the driver by `protocol` and maps
   the token / from-address / dev-outbox to env vars. `.env.example` documents them,
   all optional, unset runs offline.
@@ -345,8 +356,10 @@ npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src
   Memory holds the desk's standing guidance; triage state stays in the stores,
   so each triage remains a pure function of what is in them.
 - `agents/default/agent.ts`: the conditional surface. Edit the predicates to
-  change which callers hold `seed_examples` and the reviewer dispatch; the
-  entries written there are the ceiling, and a predicate can only subtract.
+  change which callers hold `seed_examples` (the chat entry; the UI's
+  first-open seed and `reset_demo` run over the invoke lane, outside this
+  agent) and the reviewer dispatch; the entries written there are the
+  ceiling, and a predicate can only subtract.
 - The desks live in `src/App.tsx` (`DESKS`): stable `scope_id`s plus display
   labels. Add a desk by adding a row. In a real embedding the scope comes from
   your backend's JWT claims instead (`scope_id`, `context`), passed via

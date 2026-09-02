@@ -50,3 +50,10 @@ test("seeding with every example present writes nothing", async () => {
   assert.equal(await ensureExamplesSeeded(ctx), 0);
   assert.deepEqual(written(), []);
 });
+
+test("assumeEmpty skips the lookup and writes every example", async () => {
+  const { ctx, calls, written } = fakeSeedStore(EXAMPLES.map((ex) => ex.submission_id));
+  assert.equal(await ensureExamplesSeeded(ctx, { assumeEmpty: true }), EXAMPLES.length);
+  assert.ok(!calls.some(([n]) => n.endsWith("__query")));
+  assert.deepEqual(written(), EXAMPLES.flatMap(keysOf));
+});

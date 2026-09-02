@@ -55,17 +55,34 @@ export function exampleRows(ex: Example, nowIso: string) {
   };
 }
 
-export async function ensureExamplesSeeded(ctx: SeedCtx): Promise<number> {
+/** The seeded stores and the field each one is keyed by. */
+export const STORE_KEYS = {
+  submissions: "submission_id",
+  documents: "document_id",
+  claims: "claim_id",
+  risk_findings: "finding_id",
+} as const;
+
+/**
+ * Write every demo submission (with its documents and claims) that is not
+ * already in the stores. `assumeEmpty` skips the lookup: reset_demo removes
+ * every row first and cannot read back its own removes.
+ */
+export async function ensureExamplesSeeded(
+  ctx: SeedCtx,
+  opts: { assumeEmpty?: boolean } = {},
+): Promise<number> {
   const nowIso = (ctx.now ? ctx.now() : new Date()).toISOString();
 
-  const existingQ = (await ctx.callTool("store__submissions__query", {
-    limit: 1000,
-  })) as {
-    documents: Array<{ payload: { submission_id: string } }>;
-  };
-  const existing = new Set(
-    (existingQ.documents ?? []).map((d) => d.payload.submission_id),
-  );
+  const existing = new Set<string>();
+  if (!opts.assumeEmpty) {
+    const existingQ = (await ctx.callTool("store__submissions__query", {
+      limit: 1000,
+    })) as {
+      documents: Array<{ payload: { submission_id: string } }>;
+    };
+    for (const d of existingQ.documents ?? []) existing.add(d.payload.submission_id);
+  }
 
   let seeded = 0;
   for (const ex of EXAMPLES) {
