@@ -51,6 +51,8 @@ export default function App() {
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetError, setResetError] = useState<string | undefined>();
+  const [syncError, setSyncError] = useState<string | undefined>();
+  const [sendError, setSendError] = useState<string | undefined>();
   const [replyTarget, setReplyTarget] = useState<{ s: SubmissionRow; finding: FindingRow } | null>(
     null,
   );
@@ -145,19 +147,25 @@ export default function App() {
   }
 
   async function onSync() {
+    setSyncError(undefined);
     try {
-      await sync.run({});
+      await runTool(sync, {});
       await refetch();
-    } catch {}
+    } catch (err) {
+      setSyncError(errorMessage(err, "Sync failed."));
+    }
   }
 
   async function onConfirmSend() {
     if (!replyTarget) return;
+    setSendError(undefined);
     try {
-      await sendReply.run({ submission_id: replyTarget.s.submission_id });
+      await runTool(sendReply, { submission_id: replyTarget.s.submission_id });
       await refetch();
       setReplyTarget(null);
-    } catch {}
+    } catch (err) {
+      setSendError(errorMessage(err, "Sending the reply failed."));
+    }
   }
 
   async function onReset() {
@@ -180,6 +188,7 @@ export default function App() {
         : null;
   const openReply = (s: SubmissionRow, finding: FindingRow) => {
     sendReply.reset();
+    setSendError(undefined);
     setReplyTarget({ s, finding });
   };
   const deciding = actions.deciding
@@ -204,9 +213,7 @@ export default function App() {
       </Sidebar>
 
       <main className="main">
-        {sync.error ? (
-          <div className="banner error">{sync.error.message ?? "Sync failed."}</div>
-        ) : null}
+        {syncError ? <div className="banner error">{syncError}</div> : null}
         {seedError ? (
           <div className="banner error">
             {seedError}{" "}
@@ -278,7 +285,7 @@ export default function App() {
           s={replyTarget.s}
           finding={replyTarget.finding}
           sending={sendReply.status === "running"}
-          error={sendReply.error?.message}
+          error={sendError}
           onConfirm={() => void onConfirmSend()}
           onCancel={() => setReplyTarget(null)}
         />

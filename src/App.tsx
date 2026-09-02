@@ -76,6 +76,8 @@ export default function App() {
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetError, setResetError] = useState<string | undefined>();
+  const [syncError, setSyncError] = useState<string | undefined>();
+  const [sendError, setSendError] = useState<string | undefined>();
   const [replyTarget, setReplyTarget] = useState<{
     desk: string;
     s: SubmissionRow;
@@ -154,6 +156,8 @@ export default function App() {
     setReplyTarget(null);
     for (const lane of [pipelineQ, sync, sendReply, seed, reset, decide, submit]) lane.reset();
     setSeedError(null);
+    setSyncError(undefined);
+    setSendError(undefined);
     setDesk(id);
     try {
       localStorage.setItem("uw-desk", id);
@@ -188,19 +192,25 @@ export default function App() {
   }
 
   async function onSync() {
+    setSyncError(undefined);
     try {
-      await sync.run({});
+      await runTool(sync, {});
       await refetch();
-    } catch {}
+    } catch (err) {
+      setSyncError(errorMessage(err, "Sync failed."));
+    }
   }
 
   async function onConfirmSend() {
     if (!replyTarget || replyTarget.desk !== desk) return;
+    setSendError(undefined);
     try {
-      await sendReply.run({ submission_id: replyTarget.s.submission_id });
+      await runTool(sendReply, { submission_id: replyTarget.s.submission_id });
       await refetch();
       setReplyTarget(null);
-    } catch {}
+    } catch (err) {
+      setSendError(errorMessage(err, "Sending the reply failed."));
+    }
   }
 
   // The reset seeds the desk itself, so refetch must not seed it again.
@@ -224,6 +234,7 @@ export default function App() {
   const findingBySub = byId(pipeline.findings);
   const openReply = (s: SubmissionRow, finding: FindingRow) => {
     sendReply.reset();
+    setSendError(undefined);
     setReplyTarget({ desk, s, finding });
   };
   const loading =
@@ -270,9 +281,7 @@ export default function App() {
       </Sidebar>
 
       <main className="main">
-        {sync.error ? (
-          <div className="banner error">{sync.error.message ?? "Sync failed."}</div>
-        ) : null}
+        {syncError ? <div className="banner error">{syncError}</div> : null}
         {seedError ? (
           <div className="banner error">
             {seedError}{" "}
@@ -344,7 +353,7 @@ export default function App() {
           s={replyTarget.s}
           finding={replyTarget.finding}
           sending={sendReply.status === "running"}
-          error={sendReply.error?.message}
+          error={sendError}
           onConfirm={() => void onConfirmSend()}
           onCancel={() => setReplyTarget(null)}
         />
