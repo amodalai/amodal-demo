@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useToolRun,
   useAutomation,
@@ -394,13 +394,9 @@ interface Pipeline {
 const EMPTY_PIPELINE: Pipeline = { submissions: [], findings: [] };
 
 export default function App() {
-  const { runtimeUrl } = useAmodalContext();
+  const { runtimeUrl, client: chatClient } = useAmodalContext();
   const [desk, setDesk] = useState(initialDesk);
   const scopeRef = useRef({ desk });
-  const chatClient = useMemo(
-    () => new RuntimeClient({ runtimeUrl, getToken: async () => "" }),
-    [runtimeUrl],
-  );
   // Every lane carries the desk's scope: the store rows these runs touch
   // live in that desk's partition, invisible to the other desk.
   const pipelineQ = useToolRun("list_pipeline", { scopeId: desk });

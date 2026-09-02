@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   useStoreQuery,
   useAmodalContext,
@@ -162,11 +162,7 @@ function Row({
 }
 
 export default function App() {
-  const { runtimeUrl } = useAmodalContext();
-  const chatClient = useMemo(
-    () => new RuntimeClient({ runtimeUrl, getToken: async () => "" }),
-    [runtimeUrl],
-  );
+  const { runtimeUrl, client: chatClient } = useAmodalContext();
   const subsQ = useStoreQuery<SubmissionRow>("submissions", { limit: 200 });
   const findingsQ = useStoreQuery<FindingRow>("risk_findings", { limit: 200 });
 
