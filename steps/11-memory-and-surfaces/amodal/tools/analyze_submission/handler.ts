@@ -1,7 +1,6 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
 import { runUnderwritingAnalysis } from "../../_lib/underwriting-analysis.js";
 
-/** Single source of truth for the underwriting rules, repo-relative. */
 const GUIDE_PATH = "amodal/knowledge/underwriting-guide.md";
 
 export interface AnalyzeSubmissionParams {
