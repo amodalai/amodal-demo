@@ -8,19 +8,27 @@ const usesTools = (tool: string) =>
     ) as { uses: { tools: string[] } }
   ).uses.tools;
 
-/** Every snapshot that ships a UI, plus the repo root, as `src` directory paths from the repo root. */
-export const SRC_DIRS = [
-  "src",
-  ...[
-    "05-custom-ui",
-    "06-guardrail-hooks",
-    "07-gmail-connection",
-    "08-custom-tool",
-    "09-model-delegation",
-    "10-automations",
-    "11-memory-and-surfaces",
-  ].map((step) => `steps/${step}/src`),
+/** Every snapshot step, in tutorial order. */
+export const STEPS = [
+  "01-skills-and-knowledge",
+  "02-stores",
+  "03-code-vs-llm",
+  "04-evals",
+  "05-custom-ui",
+  "06-guardrail-hooks",
+  "07-gmail-connection",
+  "08-custom-tool",
+  "09-model-delegation",
+  "10-automations",
+  "11-memory-and-surfaces",
 ];
+
+/** The snapshot steps from `first` onwards, as directory paths from the repo root. */
+export const stepsFrom = (first: string) =>
+  STEPS.slice(STEPS.indexOf(first)).map((step) => `steps/${step}`);
+
+/** Every snapshot that ships a UI, plus the repo root, as `src` directory paths from the repo root. */
+export const SRC_DIRS = ["src", ...stepsFrom("05-custom-ui").map((dir) => `${dir}/src`)];
 
 /** Assert every store tool a handler called is declared in its tool.json `uses`; undeclared calls fail closed at runtime. */
 export function assertDeclared(tool: string, called: Iterable<string>) {

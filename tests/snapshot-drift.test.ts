@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { SRC_DIRS } from "./helpers.js";
+import { SRC_DIRS, STEPS, stepsFrom } from "./helpers.js";
 
 /**
  * Eight copies of the same app is what a tutorial made of snapshots costs. The
@@ -60,4 +60,43 @@ for (const file of SHARED) {
 test("App.tsx differs per snapshot, so the shared list is doing work", () => {
   const apps = new Set(SRC_DIRS.map((dir) => readFileSync(`${dir}/App.tsx`, "utf8")));
   assert.equal(apps.size, 4, "one root app plus the three step variants");
+});
+
+/**
+ * `amodal/_lib` is copied into every step that has reached it, and the early
+ * copies are deliberately behind: each module names the step from which it stops
+ * changing, so a refinement landed on the root alone fails instead of shipping
+ * stale copies.
+ */
+const LIB_STABLE_FROM = {
+  "decision.ts": "05-custom-ui",
+  "events.ts": "05-custom-ui",
+  "reset.ts": "05-custom-ui",
+  "underwriting-analysis.ts": "05-custom-ui",
+  "demo-data.ts": "07-gmail-connection",
+  "submit.ts": "07-gmail-connection",
+  "examples.ts": "08-custom-tool",
+};
+
+test("every amodal/_lib module is pinned", () => {
+  assert.deepEqual(readdirSync("amodal/_lib").sort(), Object.keys(LIB_STABLE_FROM).sort());
+});
+
+for (const [file, from] of Object.entries(LIB_STABLE_FROM)) {
+  test(`amodal/_lib/${file} is identical from step ${from} on`, () => {
+    const mine = readFileSync(`amodal/_lib/${file}`, "utf8");
+    for (const dir of stepsFrom(from)) {
+      const path = `${dir}/amodal/_lib/${file}`;
+      assert.ok(existsSync(path), `${path} exists`);
+      assert.equal(readFileSync(path, "utf8"), mine, path);
+    }
+  });
+}
+
+test("the _lib start steps are doing work", () => {
+  for (const [file, from] of Object.entries(LIB_STABLE_FROM)) {
+    const before = `steps/${STEPS[STEPS.indexOf(from) - 1]}/amodal/_lib/${file}`;
+    if (!existsSync(before)) continue;
+    assert.notEqual(readFileSync(before, "utf8"), readFileSync(`amodal/_lib/${file}`, "utf8"), before);
+  }
 });
