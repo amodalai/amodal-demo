@@ -35,7 +35,6 @@ const SUBMISSION_GAPS = {
   ...NEW_SUBMISSION_DEFAULTS,
 };
 
-/** A stored row plus `patch`, with any column the row predates filled in. */
 export function updatedSubmission(
   sub: Record<string, unknown>,
   patch: Record<string, unknown>,
