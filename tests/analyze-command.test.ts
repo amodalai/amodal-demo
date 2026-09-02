@@ -8,19 +8,20 @@ const { runAnalyzeCommand } = await loadDeclarations<{
   runAnalyzeCommand(
     client: unknown,
     submission_id: string,
-    scopeId: string,
+    scopeId?: string,
   ): Promise<void>;
 }>(["runAnalyzeCommand"], ["src/analyze.ts", "src/App.tsx"]);
 
 /** A RuntimeClient stand-in whose stream reports how far the command read into it. */
 function fakeClient(events: AnalyzeEvent[]) {
-  const state = { consumed: 0, prompt: "", scopeId: "" };
+  const state = { consumed: 0, prompt: "", scopeId: "", scoped: false };
   return {
     state,
     client: {
-      async *chatStream(prompt: string, opts: { scopeId: string }) {
+      async *chatStream(prompt: string, opts: { scopeId?: string }) {
         state.prompt = prompt;
-        state.scopeId = opts.scopeId;
+        state.scopeId = opts.scopeId ?? "";
+        state.scoped = "scopeId" in opts;
         for (const ev of events) {
           state.consumed += 1;
           yield ev;
@@ -48,6 +49,15 @@ test("returns on the analyze result and stops reading the stream", async () => {
   assert.equal(state.prompt, "analyze sub_bistro_ember");
   assert.equal(state.scopeId, "desk-pacific");
   assert.equal(state.consumed, 3, "the post-result narration is not consumed");
+});
+
+test("an unscoped call sends no scopeId at all", async () => {
+  const { client, state } = fakeClient([
+    started,
+    result({ status: "ok", result: JSON.stringify({ found: true }) }),
+  ]);
+  await runAnalyzeCommand(client, "sub_x");
+  assert.equal(state.scoped, false);
 });
 
 test("ignores a tool_call_result from another tool", async () => {

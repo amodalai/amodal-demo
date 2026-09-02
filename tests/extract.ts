@@ -21,7 +21,10 @@ export async function loadDeclarations<T extends object>(
     const found = new Map<string, string>();
     for (const node of file.statements) {
       const name = declaredName(node);
-      if (name && names.includes(name)) found.set(name, node.getText(file));
+      // The declaration may already be exported once it lives in its own module.
+      if (name && names.includes(name)) {
+        found.set(name, node.getText(file).replace(/^export\s+/, ""));
+      }
     }
     if (found.size !== names.length) continue;
     const code = ts.transpileModule(
