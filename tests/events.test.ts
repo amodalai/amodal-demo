@@ -79,6 +79,23 @@ test("two kinds appended at the same instant get distinct ids", async () => {
   assert.equal(new Set(writes.map((w) => w.key)).size, 2);
 });
 
+test("one kind appended repeatedly at the same instant gets distinct ids", async () => {
+  const { ctx, writes } = fakeRuntime();
+  const at = "2026-09-01T15:45:00.000Z";
+  for (const submission_id of ["sub_a", "sub_b", "sub_c"])
+    await appendEvent(eventCtx(ctx, at), {
+      submission_id,
+      kind: "submitted",
+      actor: "broker@acme.example",
+      summary: "Filed from the broker inbox.",
+    });
+  assert.equal(
+    new Set(writes.map((w) => w.key)).size,
+    3,
+    "a sync loop's own rows must not overwrite each other",
+  );
+});
+
 /** A runtime whose journaled primitives are methods that read their receiver, which is what
  *  detaching `random` from the context breaks. */
 function fakeRuntime() {
