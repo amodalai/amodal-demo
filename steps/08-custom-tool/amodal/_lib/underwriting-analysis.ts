@@ -84,7 +84,7 @@ export function findMissingRequiredDocs(documents: DocumentRow[]): string[] {
     .map((d) => d.name);
 }
 
-function rows<T>(q: unknown): T[] {
+export function rows<T>(q: unknown): T[] {
   const docs = (q as { documents?: Array<{ payload: T }> }).documents;
   return (docs ?? []).map((d) => d.payload);
 }

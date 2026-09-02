@@ -15,9 +15,10 @@ export default {
   tools: [
     "analyze_submission",
     "claims_stats",
-    // Loading the demo dataset is an operator's offline shortcut. A headless
-    // run must never fake data over a real mailbox sync: if the inbox is
-    // empty, an unattended session files nothing.
+    // The `seed` chat shortcut is the operator's. A headless run must never
+    // fake data over a real mailbox sync: if the inbox is empty, an
+    // unattended session files nothing. (The UI's first-open seed runs the
+    // same tool through the invoke lane, which is not this agent.)
     { name: "seed_examples", conditional: humanPresent },
   ],
   subagents: [

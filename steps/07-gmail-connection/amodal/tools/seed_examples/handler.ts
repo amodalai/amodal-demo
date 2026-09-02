@@ -2,10 +2,11 @@ import type { CustomToolContext } from "../../_types/tool-context.js";
 import { ensureExamplesSeeded, EXAMPLES } from "../../_lib/demo-data.js";
 
 /**
- * Composite tool behind the `seed` chat command (a regex trigger on this
- * tool, fired from the request path before the LLM). Same idempotent seeding
- * as the offline Sync-inbox fallback; the store tools it uses are declared
- * in tool.json `uses.tools`.
+ * Durable tool behind the `seed` chat command (a regex trigger on this tool,
+ * fired from the request path before the LLM) and the UI's first open, which
+ * runs it through the direct-invoke lane when the submissions store is
+ * empty. Same idempotent seeding as the offline Sync-inbox fallback; the
+ * store tools it uses are declared in tool.json `uses.tools`.
  */
 export default async function seed_examples(
   _params: Record<string, never>,
@@ -20,6 +21,7 @@ export default async function seed_examples(
 
   const seeded = await ensureExamplesSeeded({
     callTool: (name, args) => ctx.callTool!(name, args),
+    now: () => new Date(ctx.now ? ctx.now() : Date.now()),
   });
   ctx.emitReasoning?.(
     seeded > 0

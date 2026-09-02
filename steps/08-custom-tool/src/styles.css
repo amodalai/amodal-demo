@@ -61,6 +61,12 @@ body {
   flex-wrap: wrap;
 }
 
+.head__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand {
   display: flex;
   align-items: center;

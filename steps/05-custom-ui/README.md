@@ -78,8 +78,11 @@ See the diff: `diff -r steps/04-evals steps/05-custom-ui`.
 The agent still has two triggered custom tools: a message that matches the
 pattern fires the handler directly, no LLM round trip:
 
-- send **`seed`** once → [`seed_examples`](amodal/tools/seed_examples/handler.ts)
+- send **`seed`** → [`seed_examples`](amodal/tools/seed_examples/handler.ts)
   loads the demo submissions, their documents, and their claims into the stores.
+  The UI runs the same tool over the invoke lane (`useToolRun`) the first time
+  it opens on an empty store, and **Reset demo data** runs `reset_demo` the
+  same way to empty the stores and load the demo again.
 - send **`analyze sub_bistro_ember`** (or `triage` / `review` / `assess` + an id)
   → [`analyze_submission`](amodal/tools/analyze_submission/handler.ts) runs the
   triage and reports in chat.
@@ -111,8 +114,10 @@ Both entry points run the same four-stage loop, in the shared
 What happens on fresh stores? Same as step 3: `analyze` self-seeds. A run
 doesn't see its own uncommitted store writes, so on a missing demo id the
 shared triage seeds the stores for later runs and analyzes the in-memory
-example directly in this run. Explicit seeding stays a chat action: the empty
-screen tells the operator to send `seed` in chat first.
+example directly in this run. Explicit seeding is a UI action too: the
+screen runs `seed_examples` through the invoke lane (`useToolRun`) the first
+time it opens on an empty store, and **Reset demo data** runs `reset_demo`
+the same way.
 
 And the evals? Unchanged from step 4, and that's the point: the UI is a new
 surface over the same logic, so the suite that pins the judgment still passes.
@@ -126,14 +131,16 @@ Re-run it after deploying to prove the new surface changed nothing.
 | `evals/`                                              | The eval suite from step 4: still green, both analyze surfaces run the same logic.             |
 | `agents/default/`                                     | The chat agent: its prompt (`AGENT.md`) and its tools + store access (`agent.json`).           |
 | `agents/underwriting-reviewer/`                       | The scoped subagent that holds the underwriting judgment.                                      |
-| `amodal/tools/seed_examples/`                         | Loads the demo data into the stores (run once by sending `seed`).                              |
+| `amodal/tools/seed_examples/`                         | The durable seeding tool: the UI runs it over the invoke lane on first open, the `seed` regex trigger runs it from chat. |
+| `amodal/tools/reset_demo/`                            | Durable invoke-lane tool for **Reset demo data**: lists and removes every row in the four stores, then seeds blind. |
 | `amodal/tools/analyze_submission/`                    | The triggered composite tool (load → check in code → call the reviewer → record).              |
 | `amodal/_lib/underwriting-analysis.ts`                | The shared triage flow every surface runs, so they can't drift.                                |
+| `amodal/_lib/reset.ts`                                | `resetDemo`: the remove-then-seed sequence behind `reset_demo`.                                |
 | `amodal/_types/tool-context.ts`                       | Local stub of the runtime's custom-tool context types, so the example typechecks offline.      |
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over.                                    |
-| `amodal/stores/`                                      | 4 store schemas: `submissions`, `documents`, `claims`, `risk_findings`.                        |
+| `amodal/stores/`                                      | 4 store schemas: `submissions`, `documents`, `claims`, `risk_findings`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                |
-| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `RuntimeClient.chatStream`.          |
+| `src/`                                                | The custom React UI (Vite): one screen, `useStoreQuery` + `useToolRun` (seed/reset) + `RuntimeClient.chatStream`, the Reset confirm modal. |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                      |
 
 ## Example cases
@@ -152,9 +159,8 @@ The four submissions shipped in `examples.ts`:
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
 and the agent chat alongside it.
 
-1. Open the agent chat and send `seed` once to load the four demo
-   submissions into the stores (or just send `analyze <id>`: it self-seeds on
-   fresh stores).
+1. Open the submissions screen (the custom UI). The four demo submissions
+   load into the stores on first open; **Reset demo data** puts them back.
 2. Open the submissions screen (the custom UI). Click **Analyze** on a row
    to triage it: the saved recommendation, risk score, and missing-info list
    appear inline. (You can still triage from chat with `analyze <id>`. Both run
@@ -173,9 +179,10 @@ npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (sr
 
 ## Configuration
 
-- `amodal/_lib/examples.ts`: the demo submissions that `seed` loads. Edit it and
-  redeploy to change the dataset. Each entry is self-contained, with embedded
-  `docs[]` and `claims[]`.
+- `amodal/_lib/examples.ts`: the demo submissions the UI loads on first open
+  (and `seed` and **Reset demo data**). Edit it and redeploy to change the
+  dataset; click **Reset demo data** to see the edit. Each entry is
+  self-contained, with embedded `docs[]` and `claims[]`.
 - `evals/*.md`: the eval suite from step 4, unchanged. Re-run it after any edit
   here.
 - `agents/default/agent.json`: the chat agent's tools and store access.

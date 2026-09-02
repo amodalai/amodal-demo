@@ -1,9 +1,9 @@
 # Eval: Seed Demo Data
 
 Smoke-tests the `seed` trigger (the `seed_examples` tool): the `seed` message
-must load (or confirm) the five demo submissions. The `analyze-*` evals
-self-seed, so this eval can run anywhere in the suite; it pins the explicit
-`seed` path.
+must load (or confirm) the five demo submissions. The UI runs the same tool
+on first open and the `analyze-*` evals self-seed, so this eval can run
+anywhere in the suite; it pins the explicit chat path.
 
 ## Setup
 

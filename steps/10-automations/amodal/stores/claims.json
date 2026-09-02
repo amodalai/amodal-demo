@@ -11,5 +11,6 @@
     "created_at": { "type": "datetime" }
   },
   "indexed": ["submission_id", "year"],
+  "deletable": true,
   "_comment_purpose": "Past insurance claims for a business, one row per claim. The underwriting-reviewer subagent reads these (passed in by the analyze_submission tool) to judge claim frequency and severity (e.g. a repeat fire, a large open claim) when recommending a workflow status."
 }
