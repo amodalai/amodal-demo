@@ -2,7 +2,7 @@ import type { CustomToolContext } from "../../_types/tool-context.js";
 import { rows } from "../../_lib/underwriting-analysis.js";
 
 /**
- * list_pipeline: the scoped read behind the UI's submissions table.
+ * list_pipeline: the scoped read behind the UI's table, packets, and timelines.
  *
  * Step 12 partitions the stores by scope_id, and the runtime's direct store
  * REST reads (what useStoreQuery hits) read only the agent-level partition.
@@ -26,6 +26,13 @@ export default async function list_pipeline(
   const findingsQ = await ctx.callTool("store__risk_findings__query", {
     limit: 200,
   });
+  const docsQ = await ctx.callTool("store__documents__query", { limit: 500 });
+  const eventsQ = await ctx.callTool("store__events__query", { limit: 500 });
 
-  return { submissions: rows(subsQ), findings: rows(findingsQ) };
+  return {
+    submissions: rows(subsQ),
+    findings: rows(findingsQ),
+    documents: rows(docsQ),
+    events: rows(eventsQ),
+  };
 }

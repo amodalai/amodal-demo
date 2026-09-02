@@ -1,5 +1,5 @@
 {
-  "description": "Read the desk's pipeline: every submission and saved risk finding in the caller's scope. Read-only; the custom UI's table fetches through it because the direct store REST reads see only the agent-level partition, never a scope's. Fired via the direct-invoke lane; not listed in any agent's tools.",
+  "description": "Read the desk's pipeline: every submission, saved risk finding, document, and event in the caller's scope. Read-only; the custom UI's table fetches through it because the direct store REST reads see only the agent-level partition, never a scope's. Fired via the direct-invoke lane; not listed in any agent's tools.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,
@@ -10,7 +10,12 @@
   "timeout": 30000,
   "execution": "durable",
   "uses": {
-    "tools": ["store__submissions__query", "store__risk_findings__query"]
+    "tools": [
+      "store__submissions__query",
+      "store__risk_findings__query",
+      "store__documents__query",
+      "store__events__query"
+    ]
   },
   "triggers": [{ "kind": "invoke" }]
 }
