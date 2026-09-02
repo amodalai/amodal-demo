@@ -6,6 +6,6 @@
     "documents": "rw",
     "claims": "rw",
     "risk_findings": "rw",
-    "events": "read"
+    "events": "rw"
   }
 }

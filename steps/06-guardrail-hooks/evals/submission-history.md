@@ -1,9 +1,8 @@
 # Eval: Submission History Comes From The Events Store
 
 The `events` store is the append-only trail of what happened to a submission
-and who did it. The agent has read access to it and no way to write it. This
-eval pins that the agent answers from the trail rather than narrating a
-plausible sequence.
+and who did it. The agent is granted the store, so this eval pins that it
+answers from the trail rather than narrating a plausible sequence.
 
 ## Setup
 
