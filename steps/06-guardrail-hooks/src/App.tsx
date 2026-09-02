@@ -146,16 +146,16 @@ function Row({
         )}
       </td>
       <td className="act">
-        {analyzeError ? (
-          <div className="row-error">{analyzeError}</div>
-        ) : null}
-        <button className="btn" disabled={isAnalyzing} onClick={onAnalyze}>
-          {isAnalyzing
-            ? "Analyzing…"
-            : s.analyzed_at
-              ? "Re-analyze"
-              : "Analyze"}
-        </button>
+        <div className="act__stack">
+          <button className="btn" disabled={isAnalyzing} onClick={onAnalyze}>
+            {isAnalyzing
+              ? "Analyzing…"
+              : s.analyzed_at
+                ? "Re-analyze"
+                : "Analyze"}
+          </button>
+        </div>
+        {analyzeError ? <div className="row-error">{analyzeError}</div> : null}
       </td>
     </tr>
   );
@@ -178,7 +178,12 @@ export default function App() {
   return (
     <div className="page">
       <header className="head">
-        <h1>Underwriting Review</h1>
+        <div className="brand">
+          <span className="brand__mark" aria-hidden="true">
+            UR
+          </span>
+          <h1>Underwriting Review</h1>
+        </div>
         <p className="sub">
           Triage commercial-property submissions against the fictional
           underwriting guide. Click <em>Analyze</em> to score one: the agent recommends a
@@ -198,30 +203,32 @@ export default function App() {
           </p>
         </div>
       ) : (
-        <table className="grid">
-          <thead>
-            <tr>
-              <th>Applicant</th>
-              <th>Business</th>
-              <th>State</th>
-              <th>Recommendation</th>
-              <th className="num">Risk</th>
-              <th>Missing info</th>
-              <th className="act"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {submissions.map((s) => (
-              <Row
-                key={s.submission_id}
-                s={s}
-                finding={findingBySub.get(s.submission_id)}
-                analyze={(id) => runAnalyzeCommand(chatClient, id)}
-                onAnalyzed={refetch}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="grid-wrap">
+          <table className="grid">
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>Business</th>
+                <th>State</th>
+                <th>Recommendation</th>
+                <th className="num">Risk</th>
+                <th>Missing info</th>
+                <th className="act"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((s) => (
+                <Row
+                  key={s.submission_id}
+                  s={s}
+                  finding={findingBySub.get(s.submission_id)}
+                  analyze={(id) => runAnalyzeCommand(chatClient, id)}
+                  onAnalyzed={refetch}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <footer className="foot">

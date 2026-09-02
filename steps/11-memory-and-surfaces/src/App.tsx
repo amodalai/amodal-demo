@@ -257,7 +257,7 @@ function Row({
           {s.submission_id}
         </div>
         {s.broker_email ? (
-          <div className="id" title={s.broker_email}>
+          <div className="id id--email" title={s.broker_email}>
             {s.broker_email}
           </div>
         ) : null}
@@ -281,19 +281,16 @@ function Row({
         )}
       </td>
       <td className="act">
-        {analyzeError ? (
-          <div className="row-error">{analyzeError}</div>
-        ) : null}
-        <button className="btn" disabled={isAnalyzing} onClick={onAnalyze}>
-          {isAnalyzing
-            ? "Analyzing…"
-            : s.analyzed_at
-              ? "Re-analyze"
-              : "Analyze"}
-        </button>
-        {finding ? (
-          <div className="reply-state">
-            {replied ? (
+        <div className="act__stack">
+          <button className="btn" disabled={isAnalyzing} onClick={onAnalyze}>
+            {isAnalyzing
+              ? "Analyzing…"
+              : s.analyzed_at
+                ? "Re-analyze"
+                : "Analyze"}
+          </button>
+          {finding ? (
+            replied ? (
               <span className="pill sent">Replied</span>
             ) : (
               <button
@@ -302,9 +299,10 @@ function Row({
               >
                 Send reply
               </button>
-            )}
-          </div>
-        ) : null}
+            )
+          ) : null}
+        </div>
+        {analyzeError ? <div className="row-error">{analyzeError}</div> : null}
       </td>
     </tr>
   );
@@ -408,7 +406,12 @@ export default function App() {
     <div className="page">
       <header className="head">
         <div className="head__bar">
-          <h1>Underwriting Review</h1>
+          <div className="brand">
+            <span className="brand__mark" aria-hidden="true">
+              UR
+            </span>
+            <h1>Underwriting Review</h1>
+          </div>
           <div className="head__actions">
             <AutoSyncToggle />
             <button className="btn" disabled={isSyncing} onClick={onSync}>
@@ -442,34 +445,36 @@ export default function App() {
           </p>
         </div>
       ) : (
-        <table className="grid">
-          <thead>
-            <tr>
-              <th>Applicant</th>
-              <th>Business</th>
-              <th>State</th>
-              <th>Recommendation</th>
-              <th className="num">Risk</th>
-              <th>Missing info</th>
-              <th className="act"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {submissions.map((s) => (
-              <Row
-                key={s.submission_id}
-                s={s}
-                finding={findingBySub.get(s.submission_id)}
-                analyze={(id) => runAnalyzeCommand(chatClient, id)}
-                onAnalyzed={refetch}
-                onReply={(sub, finding) => {
-                  sendReply.reset?.();
-                  setReplyTarget({ s: sub, finding });
-                }}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="grid-wrap">
+          <table className="grid">
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>Business</th>
+                <th>State</th>
+                <th>Recommendation</th>
+                <th className="num">Risk</th>
+                <th>Missing info</th>
+                <th className="act"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((s) => (
+                <Row
+                  key={s.submission_id}
+                  s={s}
+                  finding={findingBySub.get(s.submission_id)}
+                  analyze={(id) => runAnalyzeCommand(chatClient, id)}
+                  onAnalyzed={refetch}
+                  onReply={(sub, finding) => {
+                    sendReply.reset?.();
+                    setReplyTarget({ s: sub, finding });
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <footer className="foot">
