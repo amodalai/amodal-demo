@@ -1,5 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
-import { appendEvent } from "../../_lib/events.js";
+import { appendEvent, eventCtx } from "../../_lib/events.js";
 import {
   DECISIONS,
   noteReason,
@@ -75,16 +75,13 @@ export default async function decide_submission(
       decided_by: "underwriter",
     },
   });
-  await appendEvent(
-    { callTool: (n, a) => ctx.callTool!(n, a), now: () => new Date(nowIso), random: ctx.random },
-    {
-      submission_id,
-      kind: "decided",
-      actor: "underwriter",
-      summary: `Decided ${decision}${note ? `: ${note}` : "."}`,
-      revision: typeof sub.revision === "number" ? sub.revision : null,
-    },
-  );
+  await appendEvent(eventCtx(ctx, nowIso), {
+    submission_id,
+    kind: "decided",
+    actor: "underwriter",
+    summary: `Decided ${decision}${note ? `: ${note}` : "."}`,
+    revision: typeof sub.revision === "number" ? sub.revision : null,
+  });
 
   return { submission_id, decision, status };
 }

@@ -9,7 +9,7 @@ export const EVENT_KINDS = [
 
 export type EventKind = (typeof EVENT_KINDS)[number];
 
-interface EventCtx {
+export interface EventCtx {
   callTool(toolName: string, args: Record<string, unknown>): Promise<unknown>;
   now?(): Date;
   /** The durable run's journaled random, so a replay reuses the first id. */
@@ -52,6 +52,23 @@ export async function appendEvent(ctx: EventCtx, e: NewEvent): Promise<string> {
   });
   return event_id;
 }
+
+/** The slice of a tool's `CustomToolContext` an event write reads. */
+interface ToolCtx {
+  callTool?(toolName: string, args: Record<string, unknown>): Promise<unknown>;
+  random?(): number;
+}
+
+/**
+ * The context for an event that accompanies a store row already stamped `atIso`,
+ * so both carry the same instant. `random` stays bound to the runtime, which
+ * implements the journaled primitives as methods on the context.
+ */
+export const eventCtx = (ctx: ToolCtx, atIso: string): EventCtx => ({
+  callTool: (n, a) => ctx.callTool!(n, a),
+  now: () => new Date(atIso),
+  random: ctx.random ? () => ctx.random!() : undefined,
+});
 
 /** The stable id of a submission's seeding event, so reseeding does not duplicate it. */
 export const seedEventId = (submission_id: string) => `evt_seed_${submission_id}`;

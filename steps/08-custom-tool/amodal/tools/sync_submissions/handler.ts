@@ -1,5 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
-import { appendEvent } from "../../_lib/events.js";
+import { appendEvent, eventCtx } from "../../_lib/events.js";
 import {
   ensureExamplesSeeded,
   NEW_SUBMISSION_DEFAULTS,
@@ -116,20 +116,13 @@ export default async function sync_submissions(
         created_at: m.date ?? nowIso,
       },
     });
-    await appendEvent(
-      {
-        callTool: (n, a) => ctx.callTool!(n, a),
-        now: () => new Date(nowIso),
-        random: ctx.random,
-      },
-      {
-        submission_id,
-        kind: "submitted",
-        actor: extractEmail(m.from),
-        summary: `Filed from the broker inbox: ${m.subject?.trim() || "(no subject)"}.`,
-        revision: 1,
-      },
-    );
+    await appendEvent(eventCtx(ctx, nowIso), {
+      submission_id,
+      kind: "submitted",
+      actor: extractEmail(m.from),
+      summary: `Filed from the broker inbox: ${m.subject?.trim() || "(no subject)"}.`,
+      revision: 1,
+    });
     filed += 1;
   }
 
