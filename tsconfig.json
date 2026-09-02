@@ -13,5 +13,5 @@
     "noEmit": true,
     "baseUrl": "."
   },
-  "include": ["amodal", "agents"]
+  "include": ["amodal", "agents", "tests"]
 }
