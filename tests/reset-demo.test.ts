@@ -4,12 +4,13 @@ import { resetDemo } from "../amodal/_lib/reset.js";
 import { EXAMPLES, STORE_KEYS } from "../amodal/_lib/demo-data.js";
 import { assertDeclared } from "./helpers.js";
 
-test("removes every row in the four stores before seeding blind", async () => {
+test("removes every row in every demo store before seeding blind", async () => {
   const existing: Record<string, string[]> = {
     submissions: ["sub_a", "sub_b"],
     documents: ["sub_a_doc_1"],
     claims: [],
     risk_findings: ["find_sub_a", "find_sub_b", "find_sub_c"],
+    events: ["evt_seed_sub_a"],
   };
   const calls: Array<[string, Record<string, unknown>]> = [];
   const out = await resetDemo({
@@ -21,13 +22,13 @@ test("removes every row in the four stores before seeding blind", async () => {
       return { documents: existing[m[1]].map((k) => ({ payload: { [field]: k } })) };
     },
   });
-  assert.deepEqual(out.removed, { submissions: 2, documents: 1, claims: 0, risk_findings: 3 });
+  assert.deepEqual(out.removed, { submissions: 2, documents: 1, claims: 0, risk_findings: 3, events: 1 });
   assert.equal(out.seeded, EXAMPLES.length);
   const names = calls.map(([n]) => n);
   const removes = calls.filter(([n]) => n.endsWith("__remove")).map(([n, a]) => `${n}:${a.key}`);
   assert.deepEqual(removes.sort(), Object.entries(existing).flatMap(([s, ks]) => ks.map((k) => `store__${s}__remove:${k}`)).sort());
   assert.ok(!names.some((n) => n.endsWith("__query")), "the seed runs blind");
-  assert.ok(names.lastIndexOf("store__risk_findings__remove") < names.indexOf("store__submissions__set"), "every remove precedes the first seed write");
+  assert.ok(names.lastIndexOf("store__events__remove") < names.indexOf("store__submissions__set"), "every remove precedes the first seed write");
   assertDeclared("reset_demo", names);
 });
 

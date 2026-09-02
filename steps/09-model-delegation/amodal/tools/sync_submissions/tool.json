@@ -25,7 +25,8 @@
       "store__submissions__set",
       "store__submissions__query",
       "store__documents__set",
-      "store__claims__set"
+      "store__claims__set",
+      "store__events__set"
     ]
   },
   "triggers": [{ "kind": "invoke" }]

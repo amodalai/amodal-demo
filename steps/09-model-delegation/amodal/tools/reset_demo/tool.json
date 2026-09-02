@@ -1,5 +1,5 @@
 {
-  "description": "Reset the demo: remove every submission, document, claim, and risk finding, then load the demo dataset again. Fired only from the UI's Reset demo data action, after the operator confirms; not listed in any agent's tools.",
+  "description": "Reset the demo: remove every submission, document, claim, risk finding, and event, then load the demo dataset again. Fired only from the UI's Reset demo data action, after the operator confirms; not listed in any agent's tools.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,
@@ -21,7 +21,10 @@
       "store__claims__remove",
       "store__claims__set",
       "store__risk_findings__list",
-      "store__risk_findings__remove"
+      "store__risk_findings__remove",
+      "store__events__list",
+      "store__events__remove",
+      "store__events__set"
     ]
   },
   "triggers": [{ "kind": "invoke" }]

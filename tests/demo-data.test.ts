@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EXAMPLES, NEW_SUBMISSION_DEFAULTS, ensureExamplesSeeded } from "../amodal/_lib/demo-data.js";
+import { seedEventId } from "../amodal/_lib/events.js";
 import { assertDeclared } from "./helpers.js";
 
 const NOW = "2026-09-01T00:00:00.000Z";
@@ -10,6 +11,7 @@ const keysOf = (ex: (typeof EXAMPLES)[number]) => [
   `submissions:${ex.submission_id}`,
   ...(ex.docs ?? []).map((_, i) => `documents:${ex.submission_id}_doc_${i + 1}`),
   ...(ex.claims ?? []).map((_, i) => `claims:${ex.submission_id}_claim_${i + 1}`),
+  `events:${seedEventId(ex.submission_id)}`,
 ];
 
 function fakeSeedStore(present: string[]) {

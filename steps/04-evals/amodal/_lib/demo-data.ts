@@ -1,3 +1,4 @@
+import { appendEvent, seedEventId } from "./events.js";
 import { EXAMPLES, type Example } from "./examples.js";
 
 export { EXAMPLES };
@@ -110,6 +111,14 @@ export async function ensureExamplesSeeded(ctx: SeedCtx): Promise<number> {
         },
       });
     }
+
+    await appendEvent(ctx, {
+      submission_id: ex.submission_id,
+      kind: "seeded",
+      actor: "system",
+      summary: `${ex.applicant_name} loaded from the demo dataset.`,
+      event_id: seedEventId(ex.submission_id),
+    });
   }
 
   return seeded;

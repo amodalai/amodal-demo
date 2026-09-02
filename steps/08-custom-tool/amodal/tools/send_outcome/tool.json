@@ -24,7 +24,8 @@
       "store__submissions__get",
       "store__risk_findings__get",
       "send_message",
-      "store__submissions__set"
+      "store__submissions__set",
+      "store__events__set"
     ]
   },
   "triggers": [{ "kind": "invoke" }]

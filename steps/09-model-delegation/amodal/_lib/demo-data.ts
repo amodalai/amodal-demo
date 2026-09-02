@@ -1,3 +1,4 @@
+import { appendEvent, seedEventId } from "./events.js";
 import { EXAMPLES, type Example } from "./examples.js";
 
 export { EXAMPLES };
@@ -55,12 +56,13 @@ export function exampleRows(ex: Example, nowIso: string) {
   };
 }
 
-/** The seeded stores and the field each one is keyed by. */
+/** The stores the demo owns, and the field each one is keyed by. */
 export const STORE_KEYS = {
   submissions: "submission_id",
   documents: "document_id",
   claims: "claim_id",
   risk_findings: "finding_id",
+  events: "event_id",
 } as const;
 
 /**
@@ -125,6 +127,14 @@ export async function ensureExamplesSeeded(
         },
       });
     }
+
+    await appendEvent(ctx, {
+      submission_id: ex.submission_id,
+      kind: "seeded",
+      actor: "system",
+      summary: `${ex.applicant_name} loaded from the demo dataset.`,
+      event_id: seedEventId(ex.submission_id),
+    });
   }
 
   return seeded;

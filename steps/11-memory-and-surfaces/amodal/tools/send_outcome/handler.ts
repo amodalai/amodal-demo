@@ -1,4 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
+import { appendEvent } from "../../_lib/events.js";
 import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js";
 
 /**
@@ -119,6 +120,20 @@ export default async function send_outcome(
     key: submission_id,
     value: { ...sub, reply_status: "sent", replied_at: nowIso },
   });
+  await appendEvent(
+    {
+      callTool: (n, a) => ctx.callTool!(n, a),
+      now: () => new Date(nowIso),
+      random: ctx.random,
+    },
+    {
+      submission_id,
+      kind: "replied",
+      actor: "underwriter",
+      summary: `Emailed the ${finding.recommendation} outcome to ${to}.`,
+      revision: typeof sub.revision === "number" ? sub.revision : null,
+    },
+  );
 
   return {
     submission_id,

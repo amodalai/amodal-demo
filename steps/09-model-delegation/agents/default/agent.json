@@ -7,6 +7,7 @@
     "submissions": "rw",
     "documents": "rw",
     "claims": "rw",
-    "risk_findings": "rw"
+    "risk_findings": "rw",
+    "events": "r"
   }
 }

@@ -1,0 +1,26 @@
+{
+  "name": "events",
+  "key": "{event_id}",
+  "schema": {
+    "event_id": { "type": "string" },
+    "submission_id": { "type": "string" },
+    "kind": {
+      "type": "enum",
+      "values": [
+        "seeded",
+        "submitted",
+        "resubmitted",
+        "analyzed",
+        "decided",
+        "replied"
+      ]
+    },
+    "actor": { "type": "string" },
+    "summary": { "type": "string" },
+    "revision": { "type": "number", "nullable": true },
+    "created_at": { "type": "datetime" }
+  },
+  "indexed": ["submission_id", "kind", "actor", "created_at"],
+  "deletable": true,
+  "_comment_purpose": "What happened to a submission and who did it, one row per step, append-only beside the four mutable row tables. The other stores hold the current state and lose the previous one on every write; this one keeps the trail the History screen and the per-submission timeline read. `actor` is who acted: the broker's address for `submitted`/`resubmitted`, `agent` for `analyzed`, the underwriter for `decided` and `replied`, `system` for `seeded`. `revision` is the submission revision the event belongs to, null where the event is not tied to one. Written only inside tools, under their tool.json `uses` allowlist; the chat agent has read access so it can answer what happened, and no way to write."
+}

@@ -7,7 +7,7 @@ interface ResetCtx {
 }
 
 /**
- * Empty the four stores and seed them again. The seed runs blind
+ * Empty the demo's stores and seed them again. The seed runs blind
  * (`assumeEmpty`) because the removes are not visible in this run.
  */
 export async function resetDemo(ctx: ResetCtx) {

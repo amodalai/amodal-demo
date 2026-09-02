@@ -1,4 +1,5 @@
 import { EXAMPLES, ensureExamplesSeeded, exampleRows } from "./demo-data.js";
+import { appendEvent } from "./events.js";
 
 export interface SubmissionRow {
   submission_id: string;
@@ -64,6 +65,8 @@ export interface AnalyzeDeps {
    *  loads the guide and this flow passes it to the reviewer as input. */
   loadGuide(): Promise<string>;
   now(): Date;
+  /** The durable run's journaled random, used for the audit event's id. */
+  random?(): number;
   sessionId: string;
   /** Optional reasoning-trace sink (ctx.emitReasoning). Each line must
    *  describe work that actually happened. */
@@ -272,6 +275,13 @@ export async function runUnderwritingAnalysis(
       risk_score: riskScore,
       analyzed_at: nowIso,
     },
+  });
+  await appendEvent(deps, {
+    submission_id,
+    kind: "analyzed",
+    actor: "agent",
+    summary: `Recommended ${recommendation} at risk ${riskScore}/100.`,
+    revision: typeof sub.revision === "number" ? sub.revision : null,
   });
   deps.trace?.(
     `Saved \`${finding_id}\` (${recommendation}, risk ${riskScore}/100) and stamped the submission.`,

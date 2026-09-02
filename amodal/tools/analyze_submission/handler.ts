@@ -42,7 +42,8 @@ export default async function analyze_submission(
       }
       return ctx.fs.readRepoFile(GUIDE_PATH);
     },
-    now: () => new Date(),
+    now: () => new Date(ctx.now ? ctx.now() : Date.now()),
+    random: ctx.random ? () => ctx.random!() : undefined,
     sessionId: ctx.sessionId ?? "",
     trace: (line) => ctx.emitReasoning?.(line),
   });
