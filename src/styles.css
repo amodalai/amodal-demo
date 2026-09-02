@@ -614,5 +614,6 @@ code {
   .head__actions {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 }
