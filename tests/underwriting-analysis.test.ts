@@ -126,6 +126,15 @@ test("analyses a stored submission: finding, then submission, then event", async
     recommendation: "ready-to-quote",
     risk_score: 42,
     analyzed_at: NOW.toISOString(),
+    // SUB predates these columns; the write fills them so the row stays valid.
+    broker_email: null,
+    reply_status: "not-sent",
+    replied_at: null,
+    decision: null,
+    decision_note: null,
+    decided_at: null,
+    decided_by: null,
+    requested_by: null,
   });
   const event = writes()[2][1].value as Record<string, unknown>;
   assert.equal(event.kind, "analyzed");

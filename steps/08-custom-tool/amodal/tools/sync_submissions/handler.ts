@@ -113,6 +113,7 @@ export default async function sync_submissions(
         annual_revenue_usd: null,
         ...NEW_SUBMISSION_DEFAULTS,
         broker_email: extractEmail(m.from),
+        requested_by: extractEmail(m.from),
         created_at: m.date ?? nowIso,
       },
     });

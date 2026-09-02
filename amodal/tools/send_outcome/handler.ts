@@ -1,4 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
+import { updatedSubmission } from "../../_lib/demo-data.js";
 import { appendEvent, eventCtx } from "../../_lib/events.js";
 import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js";
 
@@ -115,10 +116,9 @@ export default async function send_outcome(
   }
 
   const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
-  // store__set replaces the whole value, so re-emit the full row.
   await ctx.callTool("store__submissions__set", {
     key: submission_id,
-    value: { ...sub, reply_status: "sent", replied_at: nowIso },
+    value: updatedSubmission(sub, { reply_status: "sent", replied_at: nowIso }),
   });
   await appendEvent(eventCtx(ctx, nowIso), {
     submission_id,

@@ -22,6 +22,30 @@ export const NEW_SUBMISSION_DEFAULTS = {
   revision: 1,
 };
 
+/**
+ * Every column that is nullable or defaulted, so a rewrite of a row written
+ * before that column existed still satisfies the schema. `store__set`
+ * replaces the whole value and rejects a row with a missing field, and the
+ * tutorial's submissions schema grows step by step, so a store carried
+ * across steps holds rows that predate the newer columns.
+ */
+const SUBMISSION_GAPS = {
+  state: null,
+  property_value_usd: null,
+  annual_revenue_usd: null,
+  broker_email: null,
+  requested_by: null,
+  ...NEW_SUBMISSION_DEFAULTS,
+};
+
+/** A stored row plus `patch`, with any column the row predates filled in. */
+export function updatedSubmission(
+  sub: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  return { ...SUBMISSION_GAPS, ...sub, ...patch };
+}
+
 function submissionRow(ex: Example, nowIso: string) {
   return {
     submission_id: ex.submission_id,

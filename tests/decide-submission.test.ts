@@ -45,6 +45,16 @@ test("records the decision, then the event, and reports the new status", async (
     decision_note: null,
     decided_at: NOW.toISOString(),
     decided_by: "underwriter",
+    // The fixture predates these columns; the write fills them.
+    state: null,
+    property_value_usd: null,
+    annual_revenue_usd: null,
+    risk_score: null,
+    analyzed_at: null,
+    broker_email: null,
+    reply_status: "not-sent",
+    replied_at: null,
+    requested_by: null,
   });
   const event = writes()[1][1].value as Record<string, unknown>;
   assert.equal(event.kind, "decided");

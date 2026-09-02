@@ -1,4 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
+import { updatedSubmission } from "../../_lib/demo-data.js";
 import { appendEvent, eventCtx } from "../../_lib/events.js";
 import {
   DECISIONS,
@@ -63,17 +64,15 @@ export default async function decide_submission(
 
   const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
   const status = statusFor(decision);
-  // store__set replaces the whole value, so re-emit the full row.
   await ctx.callTool("store__submissions__set", {
     key: submission_id,
-    value: {
-      ...sub,
+    value: updatedSubmission(sub, {
       status,
       decision,
       decision_note: note || null,
       decided_at: nowIso,
       decided_by: "underwriter",
-    },
+    }),
   });
   await appendEvent(eventCtx(ctx, nowIso), {
     submission_id,

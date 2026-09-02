@@ -1,4 +1,9 @@
-import { EXAMPLES, ensureExamplesSeeded, exampleRows } from "./demo-data.js";
+import {
+  EXAMPLES,
+  ensureExamplesSeeded,
+  exampleRows,
+  updatedSubmission,
+} from "./demo-data.js";
 import { appendEvent } from "./events.js";
 
 export interface SubmissionRow {
@@ -289,13 +294,12 @@ export async function runUnderwritingAnalysis(
 
   await deps.callTool("store__submissions__set", {
     key: submission_id,
-    value: {
-      ...sub,
+    value: updatedSubmission(sub, {
       status: "in-review",
       recommendation,
       risk_score: riskScore,
       analyzed_at: nowIso,
-    },
+    }),
   });
   await appendEvent(deps, {
     submission_id,
