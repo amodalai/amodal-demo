@@ -158,6 +158,29 @@ function UnderwriterView({
   );
 }
 
+type PacketEdit = { submission_id: string; packet: DraftDocument[] };
+
+/**
+ * What the editor shows: the broker's own edits, or the filed packet until
+ * they make one. The rows arrive a fetch after mount, so seeding editor state
+ * on mount leaves a deep link or a reload holding an empty packet, and filing
+ * that packet replaces the submission's documents with nothing. Pairing the
+ * edit with its submission id also keeps one file's edits off the next.
+ */
+function packetFor(
+  submission_id: string,
+  documents: DocumentRow[],
+  edit: PacketEdit | null,
+): DraftDocument[] {
+  if (edit?.submission_id === submission_id) return edit.packet;
+  return documents.map((d) => ({
+    kind: d.kind,
+    name: d.name,
+    status: d.status,
+    required: d.required,
+  }));
+}
+
 /**
  * What the broker sees: their own file and what is being asked of them. No
  * cards, no risk score, no timeline. The agent's internal scoring is the
@@ -178,9 +201,8 @@ function BrokerView({
   submitError?: string;
   onResubmit: (draft: SubmissionDraft) => void;
 }) {
-  const [packet, setPacket] = useState<DraftDocument[]>(() =>
-    documents.map((d) => ({ kind: d.kind, name: d.name, status: d.status, required: d.required })),
-  );
+  const [edit, setEdit] = useState<PacketEdit | null>(null);
+  const packet = packetFor(s.submission_id, documents, edit);
   const outstanding = s.decision === "request-info" ? (finding?.missing_info ?? []) : [];
 
   return (
@@ -222,7 +244,10 @@ function BrokerView({
             Update the packet and file it again. The submission keeps its id and
             its revision goes up by one.
           </p>
-          <DocumentsEditor documents={packet} onChange={setPacket} />
+          <DocumentsEditor
+            documents={packet}
+            onChange={(next) => setEdit({ submission_id: s.submission_id, packet: next })}
+          />
           {submitError ? <div className="banner error">{submitError}</div> : null}
           <div className="form__actions">
             <button
