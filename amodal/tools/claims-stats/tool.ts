@@ -95,7 +95,7 @@ const tool: ToolDefinition<ClaimsStatsInput, ClaimsStatsOutput> = {
       claims_in_last_3_years: claimsInWindow,
       open_claims: openClaims,
       largest_claim_usd: largest,
-      total_incurred_usd: total,
+      total_incurred_usd: Math.round(total * 100) / 100,
       claim_years: [...years].sort((a, b) => a - b),
     };
   },
