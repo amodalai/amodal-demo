@@ -8,6 +8,6 @@
     "documents": "rw",
     "claims": "rw",
     "risk_findings": "rw",
-    "events": "r"
+    "events": "read"
   }
 }
