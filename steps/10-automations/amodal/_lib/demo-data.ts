@@ -15,6 +15,11 @@ export const NEW_SUBMISSION_DEFAULTS = {
   analyzed_at: null,
   reply_status: "not-sent" as const,
   replied_at: null,
+  decision: null,
+  decision_note: null,
+  decided_at: null,
+  decided_by: null,
+  revision: 1,
 };
 
 function submissionRow(ex: Example, nowIso: string) {
@@ -27,6 +32,7 @@ function submissionRow(ex: Example, nowIso: string) {
     annual_revenue_usd: ex.annual_revenue_usd ?? null,
     ...NEW_SUBMISSION_DEFAULTS,
     broker_email: ex.broker_email ?? null,
+    requested_by: ex.broker_email ?? null,
     created_at: nowIso,
   };
 }

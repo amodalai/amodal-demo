@@ -20,6 +20,12 @@ function submissionRow(ex: Example, nowIso: string) {
     recommendation: null,
     risk_score: null,
     analyzed_at: null,
+    decision: null,
+    decision_note: null,
+    decided_at: null,
+    decided_by: null,
+    revision: 1,
+    requested_by: null,
     created_at: nowIso,
   };
 }

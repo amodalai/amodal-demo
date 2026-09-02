@@ -1,0 +1,36 @@
+{
+  "description": "Record the underwriter's decision on a submission: quote, request-info, refer, or decline. Fired only from the custom UI's Decide action and listed in no agent's tools, so the model structurally cannot call it. The agent recommends; a human decides. Rejects a quote while required information is outstanding, and a decision that needs a written note without one.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "submission_id": {
+        "type": "string",
+        "description": "The submission being decided, e.g. sub_bistro_ember."
+      },
+      "decision": {
+        "type": "string",
+        "enum": ["quote", "request-info", "refer", "decline"],
+        "description": "The underwriter's decision."
+      },
+      "note": {
+        "type": "string",
+        "description": "The underwriter's reasoning. Required to decline, and to quote against the agent's recommendation."
+      }
+    },
+    "required": ["submission_id", "decision"]
+  },
+  "runningLabel": "Recording the decision on {{submission_id}}",
+  "completedLabel": "Decided {{submission_id}}",
+  "timeout": 60000,
+  "execution": "durable",
+  "uses": {
+    "tools": [
+      "store__submissions__get",
+      "store__submissions__set",
+      "store__risk_findings__get",
+      "store__events__set"
+    ]
+  },
+  "triggers": [{ "kind": "invoke" }]
+}

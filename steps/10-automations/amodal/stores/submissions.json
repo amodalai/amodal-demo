@@ -10,7 +10,7 @@
     "annual_revenue_usd": { "type": "number", "nullable": true },
     "status": {
       "type": "enum",
-      "values": ["new", "in-review", "closed"]
+      "values": ["new", "in-review", "info-requested", "closed"]
     },
     "recommendation": {
       "type": "enum",
@@ -32,6 +32,16 @@
       "nullable": true
     },
     "replied_at": { "type": "datetime", "nullable": true },
+    "decision": {
+      "type": "enum",
+      "values": ["quote", "request-info", "refer", "decline"],
+      "nullable": true
+    },
+    "decision_note": { "type": "string", "nullable": true },
+    "decided_at": { "type": "datetime", "nullable": true },
+    "decided_by": { "type": "string", "nullable": true },
+    "requested_by": { "type": "string", "nullable": true },
+    "revision": { "type": "number" },
     "created_at": { "type": "datetime" }
   },
   "indexed": [
@@ -41,8 +51,10 @@
     "reply_status",
     "analyzed_at",
     "created_at",
-    "broker_email"
+    "broker_email",
+    "decision",
+    "requested_by"
   ],
   "deletable": true,
-  "_comment_purpose": "A business applying for insurance. analyze_submission reads the row plus its documents + claims, scores it against the underwriting guide, and writes the model's `recommendation` + `risk_score` back. `status` is the human-owned workflow lane (new -> in-review -> closed); the analyzer only advances it to `in-review`, it never sets a terminal status: agent assists, human decides. `broker_email` is where the submission came from (populated by `sync_submissions`, the Gmail read surface) and where the outcome reply goes; `reply_status`/`replied_at` track that outbound reply (written by `send_outcome`, the Gmail confirm surface). No premium/binding fields by design: the example recommends a workflow status + conditions only, never rates or binds."
+  "_comment_purpose": "A business applying for insurance. analyze_submission reads the row plus its documents + claims, scores it against the underwriting guide, and writes the model's `recommendation` + `risk_score` back. `status` is the human-owned workflow lane (new -> in-review -> info-requested/closed); the analyzer only advances it to `in-review` and never writes a decision. `decision`/`decision_note`/`decided_at`/`decided_by` are the human underwriter's call, written only by decide_submission, which is in no agent's tools: agent assists, human decides. `requested_by` is the broker who filed it and `revision` counts how many times they have; a resubmission keeps the id and bumps the revision. `broker_email` is where the submission came from (populated by `sync_submissions`, the Gmail read surface) and where the outcome reply goes; `reply_status`/`replied_at` track that outbound reply (written by `send_outcome`, the Gmail confirm surface). No premium/binding fields by design: the example recommends a workflow status + conditions only, never rates or binds."
 }
