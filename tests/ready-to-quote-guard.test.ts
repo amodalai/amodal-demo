@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 type Decision = { action: "allow" } | { action: "block"; reason: string };
 interface Hook {
@@ -58,6 +58,33 @@ function guard(documents: unknown[] = []) {
 const write = (value: unknown, toolName = "store__submissions__set") => ({
   toolName,
   args: { key: "sub_a", value },
+});
+
+test("blocks a quote decision while a required document is not received", async () => {
+  const g = guard(docs([true, "requested"]));
+  const out = await g.run(write({ submission_id: "sub_a", decision: "quote" }));
+  assert.equal(out.action, "block");
+  assert.match((out as { reason: string }).reason, /sub_a cannot be quoted: required document\(s\) not received \(doc 0\)/);
+});
+
+test("allows every other decision, and a quote with the packet complete", async () => {
+  const g = guard(docs([true, "missing"]));
+  for (const decision of ["request-info", "refer", "decline"]) {
+    assert.deepEqual(await g.run(write({ submission_id: "sub_a", decision })), { action: "allow" }, decision);
+  }
+  assert.deepEqual(
+    await guard(docs([true, "received"])).run(write({ submission_id: "sub_a", decision: "quote" })),
+    { action: "allow" },
+  );
+});
+
+test("every snapshot ships the same guard", () => {
+  const mine = readFileSync(`${HOOK_DIR}/index.mjs`, "utf8");
+  const copies = readdirSync("steps")
+    .map((step) => `steps/${step}/${HOOK_DIR}/index.mjs`)
+    .filter((path) => existsSync(path));
+  assert.ok(copies.length >= 6, "the guard exists from step 06 onward");
+  for (const path of copies) assert.equal(readFileSync(path, "utf8"), mine, path);
 });
 
 test("blocks a ready-to-quote write while a required document is not received", async () => {

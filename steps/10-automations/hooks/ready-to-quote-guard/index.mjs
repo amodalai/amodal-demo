@@ -8,12 +8,16 @@
  * EVERY tool call regardless of who made it, so it's the right place to make the
  * invariant true platform-wide, not just inside one handler.
  *
+ * The rule covers both halves of the workflow: the agent's
+ * `recommendation: "ready-to-quote"` and the human's `decision: "quote"`. The
+ * decide handler checks the same thing in code, and this hook is what makes it
+ * true for every writer, whoever they are.
+ *
  * Fires on `preToolUse` for `store__submissions__set` / `store__risk_findings__set`.
- * When the row being written carries `recommendation: "ready-to-quote"`, it reads
- * that submission's documents and blocks the write if any required document isn't
- * `received`. Everything else passes straight through. Fail-closed: if the
- * documents read throws, the manifest's `failPolicy: "closed"` turns the failure
- * into a block.
+ * When the row being written makes either claim, it reads that submission's
+ * documents and blocks the write if any required document isn't `received`.
+ * Everything else passes straight through. Fail-closed: if the documents read
+ * throws, the manifest's `failPolicy: "closed"` turns the failure into a block.
  *
  * Shipped as `.mjs` so the runtime's hook loader (no on-demand esbuild, unlike
  * tools) can import it directly. Exports `createHook(config) => {run}`.
@@ -36,6 +40,8 @@ export function createHook(config) {
     typeof config.blockedRecommendation === "string"
       ? config.blockedRecommendation
       : "ready-to-quote";
+  const blockedDecision =
+    typeof config.blockedDecision === "string" ? config.blockedDecision : "quote";
 
   return {
     /**
@@ -56,16 +62,20 @@ export function createHook(config) {
       const row = value && typeof value === "object" ? value : undefined;
       if (!row) return { action: "allow" };
 
-      if (row.recommendation !== blockedRecommendation)
-        return { action: "allow" };
+      const claim =
+        row.recommendation === blockedRecommendation
+          ? `be ${blockedRecommendation}`
+          : row.decision === blockedDecision
+            ? `be quoted`
+            : undefined;
+      if (!claim) return { action: "allow" };
 
       const submissionId =
         typeof row.submission_id === "string" ? row.submission_id : undefined;
       if (!submissionId || !ctx.store) {
         return {
           action: "block",
-          reason:
-            "Cannot verify required documents for this ready-to-quote write.",
+          reason: `Cannot verify required documents for this write claiming to ${claim}.`,
         };
       }
 
@@ -79,13 +89,13 @@ export function createHook(config) {
       if (missing.length === 0) return { action: "allow" };
 
       ctx.log(
-        `ready-to-quote-guard: blocked ${toolName} for ${submissionId} (missing required docs: ${missing.join(", ")})`,
+        `ready-to-quote-guard: blocked ${toolName} for ${submissionId} (${claim}; missing required docs: ${missing.join(", ")})`,
       );
       return {
         action: "block",
         reason:
-          `${submissionId} cannot be ready-to-quote: required document(s) not received (${missing.join(", ")}).` +
-          ` Resolve the missing documents or choose another recommendation.`,
+          `${submissionId} cannot ${claim}: required document(s) not received (${missing.join(", ")}).` +
+          ` Resolve the missing documents or choose another outcome.`,
       };
     },
   };
