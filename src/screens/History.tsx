@@ -76,7 +76,7 @@ export function History({
         </div>
       ) : (
         <div className="grid-wrap">
-          <table className="grid">
+          <table className="grid grid--history">
             <thead>
               <tr>
                 <th>When</th>

@@ -29,7 +29,7 @@ export function MySubmissions({
         </div>
       ) : (
         <div className="grid-wrap">
-          <table className="grid">
+          <table className="grid grid--mine">
             <thead>
               <tr>
                 <th>Applicant</th>

@@ -20,3 +20,35 @@ for (const dir of SRC_DIRS) {
     assert.match(narrow, /\.rail__tabs\s*\{[^}]*flex-wrap:\s*wrap;/);
   });
 }
+
+/**
+ * `table-layout: fixed` divides exactly the widths the stylesheet declares, so
+ * a column added without a rule renders at zero width and its contents spill
+ * out of the cell. Every table's column count has to match its rules.
+ */
+const TABLES = [
+  { component: "components/SubmissionTable.tsx", modifier: "grid--pipeline" },
+  { component: "screens/History.tsx", modifier: "grid--history" },
+  { component: "screens/MySubmissions.tsx", modifier: "grid--mine" },
+];
+
+for (const dir of SRC_DIRS) {
+  for (const { component, modifier } of TABLES) {
+    test(`${dir}/${component} sizes every column it renders`, () => {
+      const columns = readFileSync(`${dir}/${component}`, "utf8").match(/<th[\s>]/g)?.length ?? 0;
+      assert.ok(columns > 0, "the table renders header cells");
+
+      const css = readFileSync(`${dir}/styles.css`, "utf8");
+      assert.match(css, new RegExp(`\\.${modifier}\\b`), `${modifier} is styled`);
+      const sized = [
+        ...css.matchAll(new RegExp(`\\.${modifier} th:nth-child\\((\\d+)\\)`, "g")),
+      ].map((m) => Number(m[1]));
+
+      assert.deepEqual(
+        sized.sort((a, b) => a - b),
+        Array.from({ length: columns }, (_, i) => i + 1),
+        `${modifier} sizes columns 1..${columns}`,
+      );
+    });
+  }
+}

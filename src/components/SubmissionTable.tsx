@@ -18,7 +18,7 @@ export function SubmissionTable({
 }) {
   return (
     <div className="grid-wrap">
-      <table className="grid">
+      <table className="grid grid--pipeline">
         <thead>
           <tr>
             <th>Applicant</th>

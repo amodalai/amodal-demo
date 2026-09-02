@@ -416,13 +416,29 @@ code {
   background: #fafbfd;
 }
 
-.grid th:nth-child(1) { width: 22%; }
-.grid th:nth-child(2) { width: 14%; }
-.grid th:nth-child(3) { width: 6%; }
-.grid th:nth-child(4) { width: 20%; }
-.grid th:nth-child(5) { width: 7%; }
-.grid th:nth-child(6) { width: 18%; }
-.grid th:nth-child(7) { width: 13%; }
+/* Column widths are per table: `table-layout: fixed` splits exactly what is
+   declared here, so a column with no rule is a column with no width. */
+.grid--pipeline { min-width: 1080px; }
+.grid--pipeline th:nth-child(1) { width: 20%; }
+.grid--pipeline th:nth-child(2) { width: 13%; }
+.grid--pipeline th:nth-child(3) { width: 5%; }
+.grid--pipeline th:nth-child(4) { width: 18%; }
+.grid--pipeline th:nth-child(5) { width: 6%; }
+.grid--pipeline th:nth-child(6) { width: 11%; }
+.grid--pipeline th:nth-child(7) { width: 13%; }
+.grid--pipeline th:nth-child(8) { width: 14%; }
+
+.grid--history th:nth-child(1) { width: 15%; }
+.grid--history th:nth-child(2) { width: 22%; }
+.grid--history th:nth-child(3) { width: 11%; }
+.grid--history th:nth-child(4) { width: 16%; }
+.grid--history th:nth-child(5) { width: 36%; }
+
+.grid--mine th:nth-child(1) { width: 30%; }
+.grid--mine th:nth-child(2) { width: 24%; }
+.grid--mine th:nth-child(3) { width: 18%; }
+.grid--mine th:nth-child(4) { width: 10%; }
+.grid--mine th:nth-child(5) { width: 18%; }
 
 .grid .num {
   text-align: right;
