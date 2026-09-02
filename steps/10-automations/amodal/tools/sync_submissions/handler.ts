@@ -117,11 +117,15 @@ export default async function sync_submissions(
       },
     });
     await appendEvent(
-      { callTool: (n, a) => ctx.callTool!(n, a), now, random: ctx.random },
+      {
+        callTool: (n, a) => ctx.callTool!(n, a),
+        now: () => new Date(nowIso),
+        random: ctx.random,
+      },
       {
         submission_id,
         kind: "submitted",
-        actor: broker_email,
+        actor: extractEmail(m.from),
         summary: `Filed from the broker inbox: ${m.subject?.trim() || "(no subject)"}.`,
         revision: 1,
       },

@@ -45,7 +45,7 @@ test("appendEvent writes the row through store__events__set", async () => {
   });
 });
 
-test("a generated id carries the timestamp and a random suffix", async () => {
+test("a generated id carries the timestamp, the kind, and a random suffix", async () => {
   const { ctx, writes } = fakeStore();
   await appendEvent(ctx, {
     submission_id: "sub_a",
@@ -53,7 +53,7 @@ test("a generated id carries the timestamp and a random suffix", async () => {
     actor: "agent",
     summary: "Scored.",
   });
-  assert.match(writes[0].key, new RegExp(`^evt_${NOW.getTime()}_[0-9a-z]{5}$`));
+  assert.match(writes[0].key, new RegExp(`^evt_${NOW.getTime()}_analyzed_[0-9a-z]{5}$`));
   assert.equal(writes[0].value.revision, null, "an untied event carries no revision");
 });
 
@@ -69,6 +69,14 @@ test("a supplied id is used verbatim, so the same append twice writes one row", 
   assert.equal(await appendEvent(ctx, e), "evt_seed_sub_a");
   assert.equal(await appendEvent(ctx, e), "evt_seed_sub_a");
   assert.deepEqual(new Set(writes.map((w) => w.key)), new Set(["evt_seed_sub_a"]));
+});
+
+test("two kinds appended at the same instant get distinct ids", async () => {
+  const { ctx, writes } = fakeStore();
+  const base = { submission_id: "sub_a", actor: "x", summary: "y" };
+  await appendEvent(ctx, { ...base, kind: "submitted" });
+  await appendEvent(ctx, { ...base, kind: "analyzed" });
+  assert.equal(new Set(writes.map((w) => w.key)).size, 2);
 });
 
 test("seeding records one stable event per example", async () => {

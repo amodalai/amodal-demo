@@ -118,7 +118,11 @@ export default async function sync_submissions(
       },
     });
     await appendEvent(
-      { callTool: (n, a) => ctx.callTool!(n, a), now, random: ctx.random },
+      {
+        callTool: (n, a) => ctx.callTool!(n, a),
+        now: () => new Date(nowIso),
+        random: ctx.random,
+      },
       {
         submission_id,
         kind: "submitted",

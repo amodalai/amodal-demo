@@ -8,6 +8,18 @@ interface SeedCtx {
   now?(): Date;
 }
 
+export const NEW_SUBMISSION_DEFAULTS = {
+  status: "new" as const,
+  recommendation: null,
+  risk_score: null,
+  analyzed_at: null,
+  decision: null,
+  decision_note: null,
+  decided_at: null,
+  decided_by: null,
+  revision: 1,
+};
+
 function submissionRow(ex: Example, nowIso: string) {
   return {
     submission_id: ex.submission_id,
@@ -16,15 +28,7 @@ function submissionRow(ex: Example, nowIso: string) {
     state: ex.state ?? null,
     property_value_usd: ex.property_value_usd ?? null,
     annual_revenue_usd: ex.annual_revenue_usd ?? null,
-    status: "new",
-    recommendation: null,
-    risk_score: null,
-    analyzed_at: null,
-    decision: null,
-    decision_note: null,
-    decided_at: null,
-    decided_by: null,
-    revision: 1,
+    ...NEW_SUBMISSION_DEFAULTS,
     requested_by: null,
     created_at: nowIso,
   };

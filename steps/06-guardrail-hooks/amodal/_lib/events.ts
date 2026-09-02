@@ -30,9 +30,12 @@ export interface NewEvent {
 export async function appendEvent(ctx: EventCtx, e: NewEvent): Promise<string> {
   const at = ctx.now ? ctx.now() : new Date();
   const random = ctx.random ? ctx.random() : Math.random();
+  // The kind is part of the id so two appends in one durable run cannot
+  // collide: a journaled `random` may replay the same value at the same
+  // millisecond, and a collision would silently overwrite the first row.
   const event_id =
     e.event_id ??
-    `evt_${at.getTime()}_${Math.floor(random * 36 ** 5)
+    `evt_${at.getTime()}_${e.kind}_${Math.floor(random * 36 ** 5)
       .toString(36)
       .padStart(5, "0")}`;
   await ctx.callTool("store__events__set", {

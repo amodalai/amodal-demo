@@ -142,45 +142,66 @@ export function parseReviewResult(text: string): ReviewResult {
   };
 }
 
+export interface AnalyzeOptions {
+  /**
+   * Rows the caller already holds, analysed instead of read back from the
+   * stores. A durable run cannot see its own uncommitted writes, so a
+   * submission filed and analysed in one run has to be analysed from memory.
+   */
+  preloaded?: LoadedSubmission;
+}
+
+interface LoadedSubmission {
+  submission: SubmissionRow;
+  documents: DocumentRow[];
+  claims: ClaimRow[];
+}
+
+async function loadSubmission(
+  submission_id: string,
+  deps: AnalyzeDeps,
+): Promise<LoadedSubmission | undefined> {
+  const submission = storeGetResult<SubmissionRow>(
+    await deps.callTool("store__submissions__get", { key: submission_id }),
+  );
+  if (submission) {
+    return {
+      submission,
+      documents: rows<DocumentRow>(
+        await deps.callTool("store__documents__query", {
+          where: { submission_id },
+          limit: 200,
+        }),
+      ),
+      claims: rows<ClaimRow>(
+        await deps.callTool("store__claims__query", {
+          where: { submission_id },
+          limit: 200,
+        }),
+      ),
+    };
+  }
+
+  const example = EXAMPLES.find((ex) => ex.submission_id === submission_id);
+  if (!example) return undefined;
+  // Fresh stores. Seed them for later runs, and analyze the in-memory
+  // example in this run: a run cannot read back its own uncommitted
+  // writes, so the rows just seeded are not visible here yet.
+  deps.trace?.(
+    `\`${submission_id}\` not in the store; seeding the demo dataset and analyzing the in-memory example.`,
+  );
+  await ensureExamplesSeeded(deps);
+  return exampleRows(example, deps.now().toISOString());
+}
+
 export async function runUnderwritingAnalysis(
   submission_id: string,
   deps: AnalyzeDeps,
+  opts: AnalyzeOptions = {},
 ): Promise<AnalyzeOutcome> {
-  let sub = storeGetResult<SubmissionRow>(
-    await deps.callTool("store__submissions__get", { key: submission_id }),
-  );
-
-  let documents: DocumentRow[];
-  let claims: ClaimRow[];
-
-  if (sub) {
-    documents = rows<DocumentRow>(
-      await deps.callTool("store__documents__query", {
-        where: { submission_id },
-        limit: 200,
-      }),
-    );
-    claims = rows<ClaimRow>(
-      await deps.callTool("store__claims__query", {
-        where: { submission_id },
-        limit: 200,
-      }),
-    );
-  } else {
-    const example = EXAMPLES.find((ex) => ex.submission_id === submission_id);
-    if (!example) return { found: false, submission_id };
-    // Fresh stores. Seed them for later runs, and analyze the in-memory
-    // example in this run: a run cannot read back its own uncommitted
-    // writes, so the rows just seeded are not visible here yet.
-    deps.trace?.(
-      `\`${submission_id}\` not in the store; seeding the demo dataset and analyzing the in-memory example.`,
-    );
-    await ensureExamplesSeeded(deps);
-    const fallback = exampleRows(example, deps.now().toISOString());
-    sub = fallback.submission;
-    documents = fallback.documents;
-    claims = fallback.claims;
-  }
+  const loaded = opts.preloaded ?? (await loadSubmission(submission_id, deps));
+  if (!loaded) return { found: false, submission_id };
+  const { submission: sub, documents, claims } = loaded;
 
   deps.trace?.(
     `Loaded ${sub.applicant_name}: ${documents.length} documents, ${claims.length} claims.`,

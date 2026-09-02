@@ -1,0 +1,54 @@
+{
+  "description": "File a broker's submission and review it in the same run: write the submission and its document packet, then score it against the underwriting guide. Pass submission_id to resubmit an existing submission, which replaces the packet and bumps its revision. Fired only from the broker's Submit action in the custom UI and listed in no agent's tools, so the model cannot file paperwork on a broker's behalf.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "applicant_name": { "type": "string", "description": "The business applying for insurance." },
+      "business_type": { "type": "string", "description": "What the business does, e.g. Restaurant." },
+      "state": { "type": "string", "description": "Two-letter state code." },
+      "property_value_usd": { "type": "number", "description": "Insured property value in USD." },
+      "annual_revenue_usd": { "type": "number", "description": "Annual revenue in USD." },
+      "broker_email": { "type": "string", "description": "Where the outcome reply goes." },
+      "requested_by": { "type": "string", "description": "The broker filing the submission." },
+      "documents": {
+        "type": "array",
+        "description": "The document packet. Any required document that is not received becomes a missing-info item.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "type": "string" },
+            "name": { "type": "string" },
+            "status": { "type": "string", "enum": ["received", "requested", "missing"] },
+            "required": { "type": "boolean" },
+            "notes": { "type": "string" }
+          },
+          "required": ["kind", "name", "status", "required"]
+        }
+      },
+      "submission_id": { "type": "string", "description": "Set to resubmit an existing submission." }
+    },
+    "required": ["applicant_name", "business_type", "requested_by", "documents"]
+  },
+  "runningLabel": "Filing and analyzing the submission",
+  "completedLabel": "Filed and analyzed the submission",
+  "timeout": 180000,
+  "execution": "durable",
+  "uses": {
+    "tools": [
+      "store__submissions__get",
+      "store__submissions__query",
+      "store__submissions__set",
+      "store__documents__query",
+      "store__documents__remove",
+      "store__documents__set",
+      "store__claims__query",
+      "store__claims__set",
+      "store__risk_findings__set",
+      "store__events__set"
+    ],
+    "subagents": ["underwriting-reviewer"]
+  },
+  "triggers": [{ "kind": "invoke" }]
+}
