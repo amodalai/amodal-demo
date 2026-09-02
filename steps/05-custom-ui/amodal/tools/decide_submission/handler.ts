@@ -64,22 +64,23 @@ export default async function decide_submission(
 
   const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
   const status = statusFor(decision);
+  const updatedSub = updatedSubmission(sub, {
+    status,
+    decision,
+    decision_note: note || null,
+    decided_at: nowIso,
+    decided_by: "underwriter",
+  });
   await ctx.callTool("store__submissions__set", {
     key: submission_id,
-    value: updatedSubmission(sub, {
-      status,
-      decision,
-      decision_note: note || null,
-      decided_at: nowIso,
-      decided_by: "underwriter",
-    }),
+    value: updatedSub,
   });
   await appendEvent(eventCtx(ctx, nowIso), {
     submission_id,
     kind: "decided",
     actor: "underwriter",
     summary: `Decided ${decision}${note ? `: ${note}` : "."}`,
-    revision: typeof sub.revision === "number" ? sub.revision : null,
+    revision: typeof updatedSub.revision === "number" ? updatedSub.revision : null,
   });
 
   return { submission_id, decision, status };

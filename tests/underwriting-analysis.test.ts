@@ -151,6 +151,15 @@ test("analyses a stored submission: finding, then submission, then event", async
   assertDeclared("analyze_submission", calls.map(([n]) => n));
 });
 
+test("a legacy row's analyzed event carries the revision written to the row", async () => {
+  const { revision: _, ...legacySub } = SUB;
+  const { deps, writes } = fakeDesk({ submission: legacySub });
+  await runUnderwritingAnalysis("sub_a", deps);
+  const submission = writes()[1][1].value as Record<string, unknown>;
+  const event = writes()[2][1].value as Record<string, unknown>;
+  assert.equal(event.revision, submission.revision);
+});
+
 test("a missing required document clamps ready-to-quote and joins the missing-info list", async () => {
   const { deps, writes } = fakeDesk({
     documents: [

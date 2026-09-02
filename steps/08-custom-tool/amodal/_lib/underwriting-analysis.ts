@@ -276,6 +276,12 @@ export async function runUnderwritingAnalysis(
 
   const nowIso = deps.now().toISOString();
   const finding_id = findingKey(submission_id);
+  const updatedSub = updatedSubmission(sub, {
+    status: "in-review",
+    recommendation,
+    risk_score: riskScore,
+    analyzed_at: nowIso,
+  });
   await deps.callTool("store__risk_findings__set", {
     key: finding_id,
     value: {
@@ -294,19 +300,14 @@ export async function runUnderwritingAnalysis(
 
   await deps.callTool("store__submissions__set", {
     key: submission_id,
-    value: updatedSubmission(sub, {
-      status: "in-review",
-      recommendation,
-      risk_score: riskScore,
-      analyzed_at: nowIso,
-    }),
+    value: updatedSub,
   });
   await appendEvent(deps, {
     submission_id,
     kind: "analyzed",
     actor: "agent",
     summary: `Recommended ${recommendation} at risk ${riskScore}/100.`,
-    revision: typeof sub.revision === "number" ? sub.revision : null,
+    revision: typeof updatedSub.revision === "number" ? updatedSub.revision : null,
   });
   deps.trace?.(
     `Saved \`${finding_id}\` (${recommendation}, risk ${riskScore}/100) and stamped the submission.`,

@@ -79,27 +79,33 @@ function fakeDesk(sub: Record<string, unknown> | { error: string }) {
   };
   const submissionWrite = () =>
     writes.find(([n]) => n === "store__submissions__set")![1].value;
-  return { ctx, submissionWrite };
+  const eventWrite = () => writes.find(([n]) => n === "store__events__set")![1].value;
+  return { ctx, eventWrite, submissionWrite };
 }
 
 test("deciding a legacy row rewrites every column the row predates", async () => {
-  const { ctx, submissionWrite } = fakeDesk(LEGACY_ROW);
+  const { ctx, eventWrite, submissionWrite } = fakeDesk(LEGACY_ROW);
   await decide_submission({ submission_id: "sub_a", decision: "refer" }, ctx);
   const value = submissionWrite() as Record<string, unknown>;
   assertComplete(value);
   assert.equal(value.decision, "refer");
   assert.equal(value.revision, 1);
+  assert.equal((eventWrite() as Record<string, unknown>).revision, value.revision);
   assert.equal(value.reply_status, "not-sent");
   assert.equal(value.created_at, LEGACY_ROW.created_at, "the original row is preserved");
 });
 
 test("replying to a legacy row rewrites every column the row predates", async () => {
-  const { ctx, submissionWrite } = fakeDesk({ ...LEGACY_ROW, broker_email: "ada@broker.example" });
+  const { ctx, eventWrite, submissionWrite } = fakeDesk({
+    ...LEGACY_ROW,
+    broker_email: "ada@broker.example",
+  });
   await send_outcome({ submission_id: "sub_a" }, ctx);
   const value = submissionWrite() as Record<string, unknown>;
   assertComplete(value);
   assert.equal(value.reply_status, "sent");
   assert.equal(value.replied_at, NOW.toISOString());
+  assert.equal((eventWrite() as Record<string, unknown>).revision, value.revision);
 });
 
 test("a synced submission carries the broker as requested_by", async () => {

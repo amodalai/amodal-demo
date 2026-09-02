@@ -116,16 +116,20 @@ export default async function send_outcome(
   }
 
   const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
+  const updatedSub = updatedSubmission(sub, {
+    reply_status: "sent",
+    replied_at: nowIso,
+  });
   await ctx.callTool("store__submissions__set", {
     key: submission_id,
-    value: updatedSubmission(sub, { reply_status: "sent", replied_at: nowIso }),
+    value: updatedSub,
   });
   await appendEvent(eventCtx(ctx, nowIso), {
     submission_id,
     kind: "replied",
     actor: "underwriter",
     summary: `Emailed the ${finding.recommendation} outcome to ${to}.`,
-    revision: typeof sub.revision === "number" ? sub.revision : null,
+    revision: typeof updatedSub.revision === "number" ? updatedSub.revision : null,
   });
 
   return {
