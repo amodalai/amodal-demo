@@ -1,5 +1,7 @@
 # Underwriting Review Example
 
+![The underwriter's pipeline: five submissions with their recommendation, risk score, and missing documents](docs/screenshot.png)
+
 An agent that triages commercial insurance submissions against an
 underwriting guide, serving two isolated underwriting desks (a `scope_id` per
 desk) from one deployment: a reviewer subagent (code-called for the saved
@@ -267,6 +269,7 @@ underwriting guide file the reviewer subagent is given.
 | `tests/`                                              | Unit tests for the tool handlers, the shared rules, the guard hook, the UI modules, and the step snapshots (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
+| `docs/screenshot.png`                                 | The screenshot at the top of this README, and the source for the marketplace card image. |
 
 ## Example cases
 
