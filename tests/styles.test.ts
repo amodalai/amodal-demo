@@ -52,3 +52,21 @@ for (const dir of SRC_DIRS) {
     });
   }
 }
+
+for (const dir of SRC_DIRS) {
+  test(`${dir}/styles.css fits the pipeline table in the desktop content column`, () => {
+    const css = readFileSync(`${dir}/styles.css`, "utf8");
+    const shell = /\.shell\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    const table = /\.grid--pipeline\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    const maxWidth = Number(/max-width:\s*(\d+)px/.exec(shell)?.[1]);
+    const railWidth = Number(/grid-template-columns:\s*(\d+)px/.exec(shell)?.[1]);
+    const gap = Number(/gap:\s*(\d+)px/.exec(shell)?.[1]);
+    const horizontalPadding = Number(/padding:\s*\d+px\s+(\d+)px/.exec(shell)?.[1]);
+    const tableMinWidth = Number(/min-width:\s*(\d+)px/.exec(table)?.[1]);
+
+    assert.ok(
+      tableMinWidth <= maxWidth - railWidth - gap - horizontalPadding * 2,
+      "the pipeline actions are visible without horizontal scrolling at the desktop max width",
+    );
+  });
+}

@@ -418,7 +418,7 @@ code {
 
 /* Column widths are per table: `table-layout: fixed` splits exactly what is
    declared here, so a column with no rule is a column with no width. */
-.grid--pipeline { min-width: 1080px; }
+.grid--pipeline { min-width: 1040px; }
 .grid--pipeline th:nth-child(1) { width: 20%; }
 .grid--pipeline th:nth-child(2) { width: 13%; }
 .grid--pipeline th:nth-child(3) { width: 5%; }
