@@ -150,6 +150,7 @@ export async function runUnderwritingAnalysis(
     await deps.callTool("store__submissions__get", { key: submission_id }),
   );
 
+  const persisted = Boolean(sub);
   let documents: DocumentRow[];
   let claims: ClaimRow[];
 
@@ -250,6 +251,19 @@ export async function runUnderwritingAnalysis(
   const riskScore = Number.isFinite(review.risk_score)
     ? Math.max(0, Math.min(100, Math.round(review.risk_score)))
     : 50;
+
+  if (persisted) {
+    const currentSub = storeGetResult<SubmissionRow>(
+      await deps.callTool("store__submissions__get", { key: submission_id }),
+    );
+    if (!currentSub) {
+      throw new Error(`Submission ${submission_id} was removed during analysis. The review was not saved.`);
+    }
+    if ((currentSub.revision ?? 1) !== (sub.revision ?? 1)) {
+      throw new Error(`Submission ${submission_id} revision changed during analysis. Analyze the current packet again.`);
+    }
+    sub = currentSub;
+  }
 
   const nowIso = deps.now().toISOString();
   const finding_id = findingKey(submission_id);

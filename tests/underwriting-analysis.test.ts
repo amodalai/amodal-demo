@@ -42,11 +42,12 @@ function fakeDesk(opts: {
   documents?: unknown[];
   claims?: unknown[];
   review?: Partial<typeof REVIEW> | string;
+  afterReview?: () => Record<string, unknown> | null;
 } = {}) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   const subagent: Array<[string, string, unknown]> = [];
   const traces: string[] = [];
-  const submission = opts.submission === undefined ? SUB : opts.submission;
+  let submission = opts.submission === undefined ? SUB : opts.submission;
   const deps: AnalyzeDeps = {
     async callTool(name, args) {
       calls.push([name, args]);
@@ -62,6 +63,7 @@ function fakeDesk(opts: {
     },
     async callSubagent(ref, task, input) {
       subagent.push([ref, task, input]);
+      if (opts.afterReview) submission = opts.afterReview();
       return typeof opts.review === "string"
         ? opts.review
         : JSON.stringify({ ...REVIEW, ...opts.review });
@@ -103,6 +105,7 @@ test("analyses a stored submission: finding, then submission, then event", async
       "store__submissions__get",
       "store__documents__query",
       "store__claims__query",
+      "store__submissions__get",
       "store__risk_findings__set",
       "store__submissions__set",
       "store__events__set",
@@ -228,6 +231,7 @@ test("an unparseable review is surfaced as an error", async () => {
 });
 
 for (const dir of [".", ...stepsFrom("03-code-vs-llm")]) {
+  if (dir !== ".") await import(`../${dir}/amodal/_lib/underwriting-analysis.test.js`);
   const { runUnderwritingAnalysis: analyze } = await import(`../${dir}/amodal/_lib/underwriting-analysis.js`);
   test(`${dir} explains overridden recommendations in the saved and returned summary`, async () => {
     for (const [recommendation, documents, expected] of [
@@ -245,6 +249,39 @@ for (const dir of [".", ...stepsFrom("03-code-vs-llm")]) {
 }
 
 for (const base of [".", ...stepsFrom("05-custom-ui")]) {
+  test(`${base}: analysis preserves a decision and reply saved while the reviewer ran`, async () => {
+    const { runUnderwritingAnalysis: analyze } = await import(`../${base}/amodal/_lib/underwriting-analysis.js`);
+    for (const decision of ["quote", "request-info", "refer", "decline"]) {
+      const current = {
+        ...SUB,
+        status: decision === "request-info" ? "info-requested" : "closed",
+        decision,
+        decision_note: "A later human decision.",
+        decided_at: "2026-09-03T07:59:00.000Z",
+        decided_by: "Casey",
+        reply_status: "sent",
+        replied_at: "2026-09-03T07:59:30.000Z",
+      };
+      const { deps, writes } = fakeDesk({ afterReview: () => current });
+      await analyze("sub_a", deps);
+      const saved = writes()[1][1].value as Record<string, unknown>;
+      for (const [key, value] of Object.entries(current)) assert.equal(saved[key], value, key);
+      assert.equal(saved.recommendation, REVIEW.recommendation);
+      assert.equal((writes()[2][1].value as Record<string, unknown>).revision, current.revision);
+    }
+  });
+
+  test(`${base}: a preloaded packet is analyzed without reading pending writes`, async () => {
+    const { runUnderwritingAnalysis: analyze } = await import(`../${base}/amodal/_lib/underwriting-analysis.js`);
+    const { deps, calls, subagent } = fakeDesk({ submission: null });
+    const out = await analyze("sub_a", deps, {
+      preloaded: { submission: SUB, documents: [], claims: [] },
+    });
+    assert.equal(out.found, true);
+    assert.equal(subagent.length, 1);
+    assert.ok(!calls.some(([name]) => /__(get|query)$/.test(name)));
+  });
+
   test(`${base}: reanalysis preserves the lane and record of a human decision`, async () => {
     const { runUnderwritingAnalysis: analyze } = await import(`../${base}/amodal/_lib/underwriting-analysis.js`);
     for (const decision of ["quote", "request-info", "refer", "decline"]) {

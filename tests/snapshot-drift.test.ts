@@ -73,6 +73,7 @@ const LIB_STABLE_FROM = {
   "events.ts": "05-custom-ui",
   "reset.ts": "05-custom-ui",
   "underwriting-analysis.ts": "05-custom-ui",
+  "underwriting-analysis.test.ts": "03-code-vs-llm",
   "demo-data.ts": "07-gmail-connection",
   "submit.ts": "07-gmail-connection",
   "reply.ts": "07-gmail-connection",

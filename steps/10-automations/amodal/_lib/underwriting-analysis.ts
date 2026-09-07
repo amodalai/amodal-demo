@@ -165,12 +165,13 @@ interface LoadedSubmission {
 async function loadSubmission(
   submission_id: string,
   deps: AnalyzeDeps,
-): Promise<LoadedSubmission | undefined> {
+): Promise<(LoadedSubmission & { persisted: boolean }) | undefined> {
   const submission = storeGetResult<SubmissionRow>(
     await deps.callTool("store__submissions__get", { key: submission_id }),
   );
   if (submission) {
     return {
+      persisted: true,
       submission,
       documents: rows<DocumentRow>(
         await deps.callTool("store__documents__query", {
@@ -196,7 +197,7 @@ async function loadSubmission(
     `\`${submission_id}\` not in the store; seeding the demo dataset and analyzing the in-memory example.`,
   );
   await ensureExamplesSeeded(deps);
-  return exampleRows(example, deps.now().toISOString());
+  return { ...exampleRows(example, deps.now().toISOString()), persisted: false };
 }
 
 export async function runUnderwritingAnalysis(
@@ -204,7 +205,9 @@ export async function runUnderwritingAnalysis(
   deps: AnalyzeDeps,
   opts: AnalyzeOptions = {},
 ): Promise<AnalyzeOutcome> {
-  const loaded = opts.preloaded ?? (await loadSubmission(submission_id, deps));
+  const loaded = opts.preloaded
+    ? { ...opts.preloaded, persisted: false }
+    : await loadSubmission(submission_id, deps);
   if (!loaded) return { found: false, submission_id };
   const { submission: sub, documents, claims } = loaded;
 
@@ -277,10 +280,20 @@ export async function runUnderwritingAnalysis(
     ? Math.max(0, Math.min(100, Math.round(review.risk_score)))
     : 50;
 
+  const currentSub = loaded.persisted
+    ? storeGetResult<SubmissionRow>(await deps.callTool("store__submissions__get", { key: submission_id }))
+    : sub;
+  if (!currentSub) {
+    throw new Error(`Submission ${submission_id} was removed during analysis. The review was not saved.`);
+  }
+  if ((currentSub.revision ?? 1) !== (sub.revision ?? 1)) {
+    throw new Error(`Submission ${submission_id} revision changed during analysis. Analyze the current packet again.`);
+  }
+
   const nowIso = deps.now().toISOString();
   const finding_id = findingKey(submission_id);
-  const updatedSub = updatedSubmission(sub, {
-    status: sub.decision ? sub.status : "in-review",
+  const updatedSub = updatedSubmission(currentSub, {
+    status: currentSub.decision ? currentSub.status : "in-review",
     recommendation,
     risk_score: riskScore,
     analyzed_at: nowIso,
