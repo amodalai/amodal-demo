@@ -5,10 +5,12 @@
   "type": "module",
   "description": "The simplest Amodal example: an agent that triages commercial insurance submissions against an underwriting guide. Two triggered tools, a reviewer subagent, no UI. Runs on the Amodal runtime.",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --no-cache --test amodal/_lib/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.5.0"
   },
   "amodal": {

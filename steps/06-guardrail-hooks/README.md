@@ -223,7 +223,7 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (src/)
-npm test           # model store-write guard tests
+npm test           # runtime, UI, and model store-write guard tests
 ```
 
 ## Configuration

@@ -163,8 +163,10 @@ Deploy the app to Amodal, then open its chat and:
 
 `analyze` reads the packet from the stores, scores it with the reviewer
 subagent, writes a `risk_findings` row, and stamps the submission, so the
-result persists and can be re-read or re-analyzed. No custom UI, nothing to
-run locally.
+result persists and can be re-read or re-analyzed.
+
+Run `npm install`, `npm run typecheck`, and `npm test` to check the runtime code
+locally. The tests use in-memory store and reviewer fixtures.
 
 ## Configuration
 

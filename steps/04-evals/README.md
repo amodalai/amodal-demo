@@ -186,6 +186,9 @@ green. (Evals can also run from the Platform API for CI.)
 
 - `sub_bistro_ember` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
+Run `npm install`, `npm run typecheck`, and `npm test` to check the runtime code
+locally. The tests use in-memory store and reviewer fixtures.
+
 ## Configuration
 
 - `evals/*.md`: the eval suite. Add a case per behavior you want to pin;

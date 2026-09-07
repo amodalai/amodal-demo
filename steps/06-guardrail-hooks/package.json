@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json",
-    "test": "node --test hooks/*/*.test.mjs"
+    "test": "tsx --no-cache --tsconfig tsconfig.app.json --test src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts hooks/*/*.test.mjs"
   },
   "dependencies": {
     "@amodalai/react": "0.3.124",
@@ -20,6 +20,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.5.0",
     "vite": "^7.0.0"
   },
