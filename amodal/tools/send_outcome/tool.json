@@ -1,5 +1,5 @@
 {
-  "description": "Email the triage outcome back to the broker over the Gmail connection's confirm surface, then record the outbound reply on the submission. Requires a saved risk finding. Fired only from the operator-confirmed Send reply action via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
+  "description": "Email the saved human decision, or the recommendation before a decision, back to the broker over the Gmail connection's confirm surface, then record the outbound reply on the submission. Requires a saved risk finding. Fired only from the operator-confirmed Send reply action via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,

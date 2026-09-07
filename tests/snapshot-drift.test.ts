@@ -75,6 +75,8 @@ const LIB_STABLE_FROM = {
   "underwriting-analysis.ts": "05-custom-ui",
   "demo-data.ts": "07-gmail-connection",
   "submit.ts": "07-gmail-connection",
+  "reply.ts": "07-gmail-connection",
+  "reply.test.ts": "07-gmail-connection",
   "examples.ts": "08-custom-tool",
 };
 

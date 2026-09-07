@@ -209,8 +209,11 @@ tools and the reviewer subagent); undeclared calls fail closed:
    chat, and the UI refetches its `useStoreQuery` data. The
    `ready-to-quote-guard` hook backstops that last rule for every writer.
 
-Once a submission has a finding, **Send reply** runs `send_outcome`: it loads the
-submission + its finding, composes the broker email, and calls `send_message`.
+Once a submission has a finding, **Send reply** runs `send_outcome`. The email
+uses the saved human decision, or the agent's recommendation before a decision.
+Quotes retain their conditions. Declines and referrals omit information requests
+and quote conditions. The [reply formatter](amodal/_lib/reply.ts) builds both the
+preview and the sent message. The audit event records the outcome emailed.
 The `outbound-reply-guard` hook blocks that send if the submission was never
 triaged: the confirm policy, made true for every caller.
 
