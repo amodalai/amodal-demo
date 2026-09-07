@@ -24,7 +24,7 @@ export function Modal({
   children?: ReactNode;
 }) {
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={busy ? undefined : onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2 className="modal__title">{title}</h2>
         {sub ? <p className="sub">{sub}</p> : null}
