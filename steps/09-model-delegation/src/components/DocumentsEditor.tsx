@@ -1,6 +1,6 @@
 import type { DocumentRow } from "../types";
 
-export type DraftDocument = Pick<DocumentRow, "kind" | "name" | "status" | "required">;
+export type DraftDocument = Pick<DocumentRow, "kind" | "name" | "status" | "required" | "notes">;
 
 const KINDS = [
   "application",

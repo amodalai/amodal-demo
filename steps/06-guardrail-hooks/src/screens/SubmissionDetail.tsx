@@ -185,6 +185,7 @@ function packetFor(
     name: d.name,
     status: d.status,
     required: d.required,
+    notes: d.notes,
   }));
 }
 

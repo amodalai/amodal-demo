@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { loadDeclarations } from "./extract.js";
 import { SRC_DIRS } from "./helpers.js";
 
-type DraftDocument = { kind: string; name: string; status: string; required: boolean };
+type DraftDocument = { kind: string; name: string; status: string; required: boolean; notes?: string | null };
 type DocumentRow = DraftDocument & { document_id: string; submission_id: string };
 type PacketEdit = { submission_id: string; packet: DraftDocument[] };
 type PacketFor = (
@@ -67,9 +67,19 @@ for (const { dir, packetFor } of loaded) {
     );
   });
 
-  test(`${dir}: the draft carries only the editable fields`, () => {
+  test(`${dir}: the draft carries only the submitted document fields`, () => {
     assert.deepEqual(packetFor("sub_a", [doc("2023 P&L")], null), [
-      { kind: "financials", name: "2023 P&L", status: "received", required: true },
+      { kind: "financials", name: "2023 P&L", status: "received", required: true, notes: undefined },
     ]);
+  });
+}
+
+for (const { dir, packetFor } of loaded) {
+  test(`${dir}: resubmitting preserves the filed document notes`, () => {
+    const document = { ...doc("Inspection"), notes: "Roof repaired in 2025." };
+    const packet = packetFor("sub_a", [document], null);
+    assert.equal(packet[0].notes, document.notes);
+    const edit = { submission_id: "sub_a", packet: packet.map((d) => ({ ...d, status: "requested" })) };
+    assert.equal(packetFor("sub_a", [document], edit)[0].notes, document.notes);
   });
 }
