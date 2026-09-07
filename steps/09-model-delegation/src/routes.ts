@@ -35,7 +35,12 @@ export function parseHash(hash: string): Route | undefined {
   if (!m) return undefined;
   const [, name, arg] = m;
   if (name === "submission") {
-    return arg ? { name: "submission", submission_id: decodeURIComponent(arg) } : undefined;
+    if (!arg) return undefined;
+    try {
+      return { name: "submission", submission_id: decodeURIComponent(arg) };
+    } catch {
+      return undefined;
+    }
   }
   if (arg || !TAB_NAMES.has(name as TabName)) return undefined;
   return { name: name as TabName };

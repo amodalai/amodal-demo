@@ -61,3 +61,14 @@ test("an owned hash resolves with no redirect", () => {
     route: { name: "submission", submission_id: "sub_a" },
   });
 });
+
+test("malformed submission escapes use the role's home route", () => {
+  for (const id of ["%", "%GG", "%E0%A4%A"]) {
+    const hash = `#/submission/${id}`;
+    assert.equal(parseHash(hash), undefined);
+    for (const role of ["broker", "underwriter"] as const) {
+      const route = { name: TABS[role][0].name };
+      assert.deepEqual(resolveRoute(role, hash), { route, redirect: hashOf(route) });
+    }
+  }
+});
