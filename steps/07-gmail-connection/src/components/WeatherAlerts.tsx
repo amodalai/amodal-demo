@@ -3,6 +3,7 @@ import { useAmodalContext, useChatStream } from "@amodalai/react";
 import contract from "../../amodal/connections/weather/openapi.json";
 
 const areas = contract.paths["/alerts/active/area/{area}"].parameters[0].schema.enum;
+const unavailable = "Weather alerts could not be checked. Try again.";
 
 export function WeatherAlerts({ state, scopeId }: { state?: string | null; scopeId?: string }) {
   const { client } = useAmodalContext();
@@ -10,20 +11,34 @@ export function WeatherAlerts({ state, scopeId }: { state?: string | null; scope
   const area = state?.trim().toUpperCase() ?? "";
   const valid = areas.includes(area);
   const chat = useChatStream({
-    streamFn: (text, signal) => client.chatStream(text, {
-      agent: "weather",
-      ...(scopeId ? { scopeId } : {}),
-      signal,
-    }),
+    streamFn: async function* (text, signal) {
+      let completed = false;
+      for await (const event of client.chatStream(text, {
+        agent: "weather",
+        ...(scopeId ? { scopeId } : {}),
+        signal,
+      })) {
+        if (event.type === "done") {
+          if ("reason" in event && event.reason !== "model_stop") throw new Error(unavailable);
+          completed = true;
+        }
+        yield event;
+      }
+      if (!completed && !signal.aborted) throw new Error(unavailable);
+    },
     onStreamEnd: () => setCheckedAt(new Date().toLocaleString()),
   });
   const answer = chat.messages.filter((m) => m.type === "assistant_text").at(-1);
   const calls = answer?.type === "assistant_text" ? answer.toolCalls : [];
-  const verified = calls.some((c) => c.toolName === "weather__alerts_active_area" && c.status === "success");
+  const verified = calls.some((c) => {
+    const path = c.parameters.path;
+    return c.toolName === "weather__alerts_active_area" && c.status === "success"
+      && path !== null && typeof path === "object" && "area" in path && path.area === area;
+  });
   const text = answer?.type === "assistant_text" ? answer.text.trim() : "";
   const finished = !!checkedAt && !chat.isStreaming;
   const error = chat.error || (finished && (!verified || !text)
-    ? "Weather alerts could not be checked. Try again."
+    ? unavailable
     : null);
 
   return (

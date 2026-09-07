@@ -50,7 +50,7 @@ test("a successful native lookup displays the report and sends the desk to the w
   let body: Record<string, unknown> = {};
   globalThis.fetch = async (_url, options) => {
     body = JSON.parse(String(options?.body));
-    return response([start, result, { type: "text_delta", content: "No active alerts in Texas." }, done]);
+    return response([start, result, { type: "text_delta", content: "No active alerts in Texas." }, { ...done, reason: "model_stop" }]);
   };
   await mount(" tx ", "desk-pacific");
   await click();
@@ -92,6 +92,10 @@ for (const events of [
   [start, { ...result, status: "error", error: "NWS unavailable" }, { type: "text_delta", content: "No active alerts." }, done],
   [{ type: "text_delta", content: "No active alerts." }, done],
   [start, result, done],
+  [{ ...start, parameters: { path: { area: "OR" } } }, result, { type: "text_delta", content: "No active alerts." }, done],
+  [start, result, { type: "text_delta", content: "No active alerts." }],
+  ...["max_turns", "user_abort", "error", "budget_exceeded", "loop_detected"].map((reason) =>
+    [start, result, { type: "text_delta", content: "No active alerts." }, { ...done, reason }]),
 ]) {
   test(`a failed or unverified report is not presented as a weather result: ${JSON.stringify(events)}`, async () => {
     globalThis.fetch = async () => response(events);
