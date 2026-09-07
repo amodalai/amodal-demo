@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json",
-    "test": "tsx --tsconfig tsconfig.app.json --test src/components/*.test.tsx amodal/_lib/*.test.ts"
+    "test": "tsx --tsconfig tsconfig.app.json --test src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts"
   },
   "dependencies": {
     "@amodalai/react": "0.3.124",
