@@ -1,11 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import decide_submission from "../amodal/tools/decide_submission/handler.js";
-import { assertDeclared } from "./helpers.js";
+import { assertDeclared, stepsFrom } from "./helpers.js";
 
 const NOW = new Date("2026-09-02T09:00:00.000Z");
 
-function fakeDesk(opts: { sub?: Record<string, unknown> | null; missing?: string[] } = {}) {
+function fakeDesk(opts: {
+  sub?: Record<string, unknown> | null;
+  missing?: string[] | null;
+  documents?: Array<{ name: string; required: boolean; status: string }>;
+  documentError?: Error;
+} = {}) {
   const sub =
     opts.sub === undefined
       ? { submission_id: "sub_a", applicant_name: "Ember Bistro", recommendation: "refer", revision: 2 }
@@ -19,7 +24,13 @@ function fakeDesk(opts: { sub?: Record<string, unknown> | null; missing?: string
     async callTool<T>(name: string, args: Record<string, unknown>): Promise<T> {
       calls.push([name, args]);
       if (name === "store__submissions__get") return (sub ?? { error: "not found" }) as T;
-      if (name === "store__risk_findings__get") return { missing_info: opts.missing ?? [] } as T;
+      if (name === "store__risk_findings__get") {
+        return (opts.missing === null ? { error: "not found" } : { missing_info: opts.missing ?? [] }) as T;
+      }
+      if (name === "store__documents__query") {
+        if (opts.documentError) throw opts.documentError;
+        return { documents: (opts.documents ?? []).map((payload) => ({ payload })) } as T;
+      }
       return {} as T;
     },
   };
@@ -127,3 +138,57 @@ test("rejects a missing id, an unknown decision, and a context without callTool"
     /needs the composite context/,
   );
 });
+
+for (const dir of [".", ...stepsFrom("05-custom-ui")]) {
+  const { default: decide } = await import(`../${dir}/amodal/tools/decide_submission/handler.js`);
+
+  test(`${dir} checks the current required documents before quoting`, async () => {
+    for (const missing of [null, []]) {
+      const { ctx, calls, writes } = fakeDesk({
+        missing,
+        documents: [{ name: "Inspection", required: true, status: "missing" }],
+      });
+      await assert.rejects(
+        decide({ submission_id: "sub_a", decision: "quote", note: "Override" }, ctx),
+        /Cannot quote while information is outstanding: Inspection\./,
+      );
+      assert.deepEqual(writes(), [], "an absent or stale finding cannot permit a quote");
+      assert.deepEqual(
+        calls.find(([name]) => name === "store__documents__query")?.[1],
+        { where: { submission_id: "sub_a" }, limit: 200 },
+      );
+      assertDeclared("decide_submission", calls.map(([name]) => name));
+    }
+  });
+
+  test(`${dir} allows a complete required packet and ignores optional missing documents`, async () => {
+    const { ctx } = fakeDesk({
+      documents: [
+        { name: "Inspection", required: true, status: "received" },
+        { name: "Photos", required: false, status: "missing" },
+      ],
+    });
+    assert.equal(
+      (await decide({ submission_id: "sub_a", decision: "quote", note: "Override" }, ctx)).status,
+      "closed",
+    );
+  });
+
+  test(`${dir} refuses a quote when the document read fails`, async () => {
+    const { ctx, writes } = fakeDesk({ documentError: new Error("Document store unavailable") });
+    await assert.rejects(
+      decide({ submission_id: "sub_a", decision: "quote", note: "Override" }, ctx),
+      /Document store unavailable/,
+    );
+    assert.deepEqual(writes(), []);
+  });
+
+  test(`${dir} can decline without reading the document packet`, async () => {
+    const { ctx, calls } = fakeDesk({ documentError: new Error("Document store unavailable") });
+    assert.equal(
+      (await decide({ submission_id: "sub_a", decision: "decline", note: "Vacant building" }, ctx)).status,
+      "closed",
+    );
+    assert.ok(!calls.some(([name]) => name === "store__documents__query"));
+  });
+}

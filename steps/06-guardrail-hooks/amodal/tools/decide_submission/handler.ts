@@ -10,7 +10,10 @@ import {
 } from "../../_lib/decision.js";
 import {
   findingKey,
+  findMissingRequiredDocs,
+  rows,
   storeGetResult,
+  type DocumentRow,
   type SubmissionRow,
 } from "../../_lib/underwriting-analysis.js";
 
@@ -56,7 +59,16 @@ export default async function decide_submission(
   const finding = storeGetResult<{ missing_info?: string[] }>(
     await ctx.callTool("store__risk_findings__get", { key: findingKey(submission_id) }),
   );
-  const blocked = quoteBlockedReason(decision, finding?.missing_info ?? []);
+  const documents = decision === "quote"
+    ? rows<DocumentRow>(await ctx.callTool("store__documents__query", {
+        where: { submission_id },
+        limit: 200,
+      }))
+    : [];
+  const blocked = quoteBlockedReason(decision, [...new Set([
+    ...findMissingRequiredDocs(documents),
+    ...(finding?.missing_info ?? []),
+  ])]);
   if (blocked) throw new Error(blocked);
 
   const needsNote = noteReason(decision, sub.recommendation as string | null);

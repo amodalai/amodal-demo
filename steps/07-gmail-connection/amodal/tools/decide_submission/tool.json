@@ -29,6 +29,7 @@
       "store__submissions__get",
       "store__submissions__set",
       "store__risk_findings__get",
+      "store__documents__query",
       "store__events__set"
     ]
   },
