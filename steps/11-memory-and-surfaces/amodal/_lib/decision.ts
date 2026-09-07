@@ -30,8 +30,8 @@ export function noteReason(
 /**
  * Why this decision is blocked outright, or null when it is allowed. The hard
  * rule: no quote while required information is outstanding. It mirrors the
- * clamp in runUnderwritingAnalysis, and the ready-to-quote-guard hook
- * backstops both.
+ * clamp in runUnderwritingAnalysis. Model-selected writes are checked
+ * separately by the hooks; authored handlers call this rule themselves.
  */
 export function quoteBlockedReason(
   decision: Decision,

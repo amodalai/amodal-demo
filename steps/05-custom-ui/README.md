@@ -93,24 +93,33 @@ and hold a tool the model is not allowed to touch:
    - **A tool the model cannot reach.** `decide_submission` and
      `submit_submission` are in no agent's `tools` list and have no regex
      trigger, so the only caller is the invoke lane behind a UI action. The
-     agent recommends; a person decides and a person files. That is structural,
-     not a prompt asking the model to hold back. `reset_demo` was the first
-     tool shaped this way; these two are the ones that matter.
+     model-store-write guard also blocks direct mutations of the underlying
+     rows. The agent recommends; a person decides and a person files.
 
    The rules a decision has to satisfy live in
    [`amodal/_lib/decision.ts`](amodal/_lib/decision.ts), which the decide modal
    and the handler both import, so a disabled button and a refused run always
    say the same thing.
 
-Note what this step deliberately leaves open: there are now two callers,
-the chat agent and the UI, and the hard rule from step 3
-(_missing required docs can never be `ready-to-quote`_) is still only enforced
-inside the analyze and decide code paths. Any other writer could regress it.
-Making that rule true for every caller is the one idea of step 6.
+The analyze and decide handlers enforce the missing-required-documents rule
+before writing. Step 6 adds a hook that reads those documents to explain why
+a model-selected quote write is invalid. The general store-write guard
+blocks direct model mutations even when the packet is complete.
 
 See the diff: `diff -r steps/04-evals steps/05-custom-ui`.
 
 ## How it works
+
+Store changes belong to the authored workflow tools. The default agent keeps
+`rw` store grants because composite tools need their declared writers registered.
+[`model-store-write-guard`](hooks/model-store-write-guard/index.mjs) blocks
+model-selected `store__*__set` and `store__*__remove` calls, so the model cannot
+forge a decision, alter a packet, or invent an audit event directly. Store
+reads and the declared workflow entry points remain available.
+
+`preToolUse` guards model-selected calls. Nested calls made by authored
+composite and durable handlers do not pass through this hook. Each handler
+must enforce the rules for its own writes and external calls.
 
 The agent still has two triggered custom tools: a message that matches the
 pattern fires the handler directly, no LLM round trip:
@@ -172,6 +181,7 @@ Re-run it after deploying to prove the new surface changed nothing.
 | Path                                                  | What it is                                                                                    |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `amodal.json`                                         | Manifest: name, version, memory off, and `runtimeApp: { custom: true }`.                       |
+| `hooks/model-store-write-guard/`                      | Blocks direct model store mutations; authored workflow tools own writes. |
 | `evals/`                                              | The eval suite, including `never-decides.md` and `submission-history.md`: the agent must refuse to decide and must answer history from the trail. |
 | `agents/default/`                                     | The chat agent: its prompt (`AGENT.md`) and its tools + store access (`agent.json`).           |
 | `agents/underwriting-reviewer/`                       | The scoped subagent that holds the underwriting judgment.                                      |
@@ -241,16 +251,18 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (src/)
+npm test           # model store-write guard tests
 ```
 
 ## Configuration
 
+- `hooks/model-store-write-guard/`: blocks all model-selected store mutations.
 - `amodal/_lib/examples.ts`: the demo submissions the UI loads on first open
   (and `seed` and **Reset demo data**). Edit it and redeploy to change the
   dataset; click **Reset demo data** to see the edit. Each entry is
   self-contained, with embedded `docs[]` and `claims[]`.
-- `evals/*.md`: the eval suite from step 4, unchanged. Re-run it after any edit
-  here.
+- `evals/*.md`: agent behavior checks, including `never-decides-via-store.md`
+  for direct-write bypass attempts. Re-run them after editing the workflow.
 - `agents/default/agent.json`: the chat agent's tools and store access.
 - `amodal.json` manifest: name, version, `runtimeApp`, memory off. No
   third-party connectors required.

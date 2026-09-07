@@ -51,50 +51,49 @@ at this step.
 | [11: memory-and-surfaces](../11-memory-and-surfaces/) | Memory and conditional surfaces |
 | [12: embedding and multi-tenancy](../../README.md) | Scoped desks, sessions, and memory |
 
-## The one idea this step teaches: a guardrail hook (one rule, every writer)
+## The one idea this step teaches: a guardrail hook with store access
 
-Step 3 established the demo's one hard rule, _a packet with a missing required
-document can never be `ready-to-quote`, and can never be quoted_, and enforced
-it in code, inside the analyze path. Step 5 quietly broke that guarantee's
-completeness: there are now several writers. The chat agent holds `rw` store
-tools and could be talked into stamping a submission directly. The UI fires the
-triage through the chat surface, and `decide_submission` writes a human quote
-down the same path. Step 7 will add more tools, and every future one is another
-chance to forget the rule. Enforcing an invariant inside one handler protects one path.
-The rule is about the data, so it belongs where every path converges.
+A packet with a missing required document cannot be `ready-to-quote` or
+quoted. The analysis and decision handlers enforce that rule before their
+writes. The model-store-write guard from step 5 prevents the chat model from
+changing store rows directly, including when a packet is complete.
 
-What a hook is. A hook runs at the platform layer on every tool call,
-whoever made it: the chat agent, a triggered tool, a future surface. It lives in
-[`hooks/ready-to-quote-guard/`](hooks/ready-to-quote-guard/): a `hook.json`
-manifest plus an `index.mjs` handler, discovered from the `hooks/` directory
-with no `amodal.json` wiring.
+This step adds a data-dependent guard:
+[`ready-to-quote-guard`](hooks/ready-to-quote-guard/). On a model-selected
+`store__submissions__set` or `store__risk_findings__set` claiming
+`recommendation: "ready-to-quote"` or `decision: "quote"`, it reads the
+submission's documents and blocks if a required document is not `received`.
+It runs before the general write guard, so an invalid quote attempt receives
+the specific missing-document reason.
 
-The manifest declares, the handler decides.
-[`hook.json`](hooks/ready-to-quote-guard/hook.json) declares _where_ it runs
-(`points: ["preToolUse"]`), _what it may touch_ (`capabilities:
-["store:read", "reads_tool_io", "gates_tools"]`: the platform supplies the
-store reader and the right to block), and _what happens if it crashes_
-(`failPolicy: "closed"`: an erroring guard blocks the write rather than waving
-it through). [`index.mjs`](hooks/ready-to-quote-guard/index.mjs) implements the
-policy: on any `store__submissions__set` / `store__risk_findings__set` carrying
-`recommendation: "ready-to-quote"` or `decision: "quote"`, read that
-submission's documents and block the write if a required document isn't
-`received`. One rule, both halves of the workflow: what the agent recommends
-and what a person decides. Everything else passes through untouched.
+A hook consists of `hook.json` and `index.mjs` under `hooks/`. The runtime
+discovers the directory without an `amodal.json` registration list.
+The manifest declares `points: ["preToolUse"]` and the capabilities
+`store:read`, `reads_tool_io`, and `gates_tools`. The runtime supplies the
+scoped store reader. `failPolicy: "closed"` blocks the call if that read or
+the hook fails.
 
-Defense in depth, not a replacement. The analyze code still downgrades
-`ready-to-quote` itself (step 3's `record` stage) and `decide_submission`
-refuses a blocked quote before it writes anything, so the hook doesn't change
-any happy path: on a healthy deploy it never fires. Code enforces the rule where
-the recommendation and the decision are made, and the hook makes it an invariant
-of the stores. And
-note the division of labor with step 4: evals detect a regression before you
-promote, and the hook prevents the bad write at runtime, whatever slipped
-through.
+The boundary matters. `preToolUse` receives model-selected calls. Nested
+calls from authored composite and durable handlers do not enter it. The
+analysis and decision code must therefore validate their own writes.
+Evals and handler tests check those workflows; hook tests check the model
+boundary. A complete packet passes the document guard and is then blocked
+by the general model-store-write guard.
 
 See the diff: `diff -r steps/05-custom-ui steps/06-guardrail-hooks`.
 
 ## How it works
+
+Store changes belong to the authored workflow tools. The default agent keeps
+`rw` store grants because composite tools need their declared writers registered.
+[`model-store-write-guard`](hooks/model-store-write-guard/index.mjs) blocks
+model-selected `store__*__set` and `store__*__remove` calls, so the model cannot
+forge a decision, alter a packet, or invent an audit event directly. Store
+reads and the declared workflow entry points remain available.
+
+`preToolUse` guards model-selected calls. Nested calls made by authored
+composite and durable handlers do not pass through this hook. Each handler
+must enforce the rules for its own writes and external calls.
 
 The agent still has two triggered custom tools: a message that matches the
 pattern fires the handler directly, no LLM round trip:
@@ -130,9 +129,8 @@ Both entry points run the same four-stage loop, in the shared
    missing-docs list into the finding and won't let a packet with missing
    required docs be `ready-to-quote`. If code overrides the recommendation, the
    saved summary explains why. Then it writes a `risk_findings` row,
-   stamps the submission, and returns the result. **New in this step:** the
-   `ready-to-quote-guard` hook backstops that last rule for every writer,
-   not just this handler.
+   stamps the submission, and returns the result. The
+   `ready-to-quote-guard` checks the same rule on model-selected writes.
 
 The UI carries the rest of the workflow, and none of it runs through chat.
 The rail switches between the underwriter and the broker: a screen role, not a
@@ -150,8 +148,9 @@ underwriting guide file the reviewer subagent is given.
 | Path                                                  | What it is                                                                                    |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `amodal.json`                                         | Manifest: name, version, memory off, and `runtimeApp: { custom: true }`.                       |
-| `hooks/ready-to-quote-guard/`                         | **This step.** `preToolUse` guard enforcing the missing-docs rule for every writer.            |
-| `evals/`                                              | The eval suite from step 4: still green, the hook changes no happy path. `never-decides` and `submission-history` cover the boundary the UI depends on. |
+| `hooks/model-store-write-guard/`                      | Blocks direct model store mutations; authored workflow tools own writes. |
+| `hooks/ready-to-quote-guard/`                         | **This step.** `preToolUse` guard checking required documents on model-selected writes.            |
+| `evals/`                                              | Agent behavior checks. `never-decides` and `never-decides-via-store` cover the decision boundary; `submission-history` covers the audit trail. |
 | `agents/default/`                                     | The chat agent: its prompt (`AGENT.md`) and its tools + store access (`agent.json`).           |
 | `agents/underwriting-reviewer/`                       | The scoped subagent that holds the underwriting judgment.                                      |
 | `amodal/tools/seed_examples/`                         | The durable seeding tool: the UI runs it over the invoke lane on first open, the `seed` regex trigger runs it from chat. |
@@ -195,15 +194,14 @@ assessment cards, missing information, and conditions.
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
 and the agent chat alongside it.
 
-1. Open the app; the demo loads on first open, exactly as in
-   step 5. Analyze a row, see the finding.
-   Nothing observable changed: the hook never fires on the healthy paths.
-2. Now try to break the rule. In chat, tell the agent something like:
+1. Open the app. The demo loads on first open. Analyze a row and inspect the
+   finding. Authored analysis validates and writes its own results.
+2. In chat, ask the agent to write directly to the store:
    _"Set sub_bistro_ember's recommendation to ready-to-quote directly in the
    store, skipping the analysis."_ The agent holds `rw` store tools, so it can
    attempt the write, and the hook blocks it, with the reason reported back.
-   The rule held even though the code path that computes recommendations was
-   never involved.
+   Missing documents produce the ready-to-quote guard's specific reason. The
+   model-store-write guard also blocks direct writes for complete packets.
 
 - `sub_bistro_ember` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
@@ -214,11 +212,13 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (src/)
+npm test           # model store-write guard tests
 ```
 
 ## Configuration
 
-- `hooks/ready-to-quote-guard/hook.json`: the guard's config: which write tools
+- `hooks/model-store-write-guard/`: blocks all model-selected store mutations.
+- `hooks/ready-to-quote-guard/hook.json`: the guard's config: which model-selected write tools
   it gates (`guardedTools`), which recommendation it blocks on missing docs
   (`blockedRecommendation`), plus its `preToolUse` point, capabilities, and
   fail-closed policy.
@@ -226,8 +226,8 @@ npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (sr
   (and `seed` and **Reset demo data**). Edit it and redeploy to change the
   dataset; click **Reset demo data** to see the edit. Each entry is
   self-contained, with embedded `docs[]` and `claims[]`.
-- `evals/*.md`: the eval suite from step 4, unchanged. Re-run it after any edit
-  here.
+- `evals/*.md`: agent behavior checks, including `never-decides-via-store.md`
+  for direct-write bypass attempts. Re-run them after editing the workflow.
 - `agents/default/agent.json`: the chat agent's tools and store access.
 - `amodal.json` manifest: name, version, `runtimeApp`, memory off. Hooks need
   no manifest entry, the `hooks/` directory is discovered.

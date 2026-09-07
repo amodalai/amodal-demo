@@ -18,8 +18,8 @@ import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js"
  * Sending mail to a real broker is irreversible, so unlike `sync_submissions`
  * (the read-only surface) this NEVER runs automatically: it is not in any
  * agent's tools, so it fires only from the operator-confirmed UI action. The
- * `outbound-reply-guard` hook backstops the LLM paths: no reply may be sent
- * for an un-triaged submission, whoever tries.
+ * `outbound-reply-guard` hook checks model-selected send calls separately.
+ * This handler validates its own nested send because it bypasses that hook.
  *
  * Runs offline: with no `GMAIL_ACCESS_TOKEN`, the driver's dev outbox
  * (`GMAIL_DEV_OUTBOX`) captures the send, so the flow completes end-to-end.

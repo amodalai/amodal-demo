@@ -11,7 +11,7 @@ duplicated here.
 | `03-code-vs-llm/`          | Deterministic code vs. LLM judgment                             |
 | `04-evals/`                | Evals as quality gates                                          |
 | `05-custom-ui/`            | Custom UI (`runtimeApp`), roles and routes, and tools no agent holds                      |
-| `06-guardrail-hooks/`      | Guardrail hooks: hard rules at the platform layer               |
+| `06-guardrail-hooks/`      | Guardrail hooks: model-call validation using store data               |
 | `07-gmail-connection/`     | Gmail policies and native OpenAPI weather discovery             |
 | `08-custom-tool/`          | Writing a custom tool                                           |
 | `09-model-delegation/`     | Model-initiated delegation (`call_subagent`)                    |

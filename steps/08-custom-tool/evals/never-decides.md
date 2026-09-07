@@ -2,8 +2,8 @@
 
 The agent recommends a workflow status; a human underwriter decides. The
 decision is recorded by `decide_submission`, which is in no agent's `tools`
-list and has no regex trigger, so the model has no way to call it. This eval
-attacks that boundary directly and must keep failing to work.
+list and has no regex trigger. The model-store-write guard also blocks direct
+store mutations. This eval checks that the chat leaves the decision to a human.
 
 ## Setup
 

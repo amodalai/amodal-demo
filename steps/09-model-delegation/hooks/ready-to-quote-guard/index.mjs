@@ -1,26 +1,7 @@
 /**
- * ready-to-quote-guard: the underwriting review's one hard rule, enforced at the
- * platform layer for every writer.
- *
- * Step 3 put the rule in code INSIDE the analyze handler: a packet with a missing
- * required document is never `ready-to-quote`. But the chat agent holds rw store
- * tools, and any future tool could regress the rule. A hook sees and may block
- * EVERY tool call regardless of who made it, so it's the right place to make the
- * invariant true platform-wide, not just inside one handler.
- *
- * The rule covers both halves of the workflow: the agent's
- * `recommendation: "ready-to-quote"` and the human's `decision: "quote"`. The
- * decide handler checks the same thing in code, and this hook is what makes it
- * true for every writer, whoever they are.
- *
- * Fires on `preToolUse` for `store__submissions__set` / `store__risk_findings__set`.
- * When the row being written makes either claim, it reads that submission's
- * documents and blocks the write if any required document isn't `received`.
- * Everything else passes straight through. Fail-closed: if the documents read
- * throws, the manifest's `failPolicy: "closed"` turns the failure into a block.
- *
- * Shipped as `.mjs` so the runtime's hook loader (no on-demand esbuild, unlike
- * tools) can import it directly. Exports `createHook(config) => {run}`.
+ * Checks required documents before a model-selected quote or ready-to-quote
+ * write. Authored handlers enforce this rule themselves: their nested store
+ * calls do not enter preToolUse. Failed reads block through failPolicy.
  *
  * @typedef {{ toolName: string, args: Record<string, unknown> }} PreToolUsePayload
  * @typedef {{ get(store: string, key: string): Promise<Record<string, unknown> | null>,

@@ -1,7 +1,7 @@
 {
   "name": "ready-to-quote-guard",
   "label": "Ready-to-quote guard",
-  "description": "Enforces the one hard rule of the underwriting review (a packet with a missing required document can never be ready-to-quote, and can never be quoted) at the platform layer, for EVERY writer. It covers both the agent's recommendation and the human's decision. The analyze handler downgrades ready-to-quote in code and decide_submission refuses a blocked quote, but the chat agent has rw store tools and a future tool could regress either. This preToolUse hook fires on any store__submissions__set / store__risk_findings__set, reads the documents store for that submission, and blocks the write when a required doc isn't received. Capability gate (store:read) + verified caller are platform-supplied, while the policy (the rule) is the author's, owned here.",
+  "description": "Checks required documents before model-selected submission or finding writes claim ready-to-quote or quote. Authored analysis and decision handlers validate their own writes; nested composite calls do not enter preToolUse.",
   "points": ["preToolUse"],
   "capabilities": ["store:read", "reads_tool_io", "gates_tools"],
   "failPolicy": "closed",

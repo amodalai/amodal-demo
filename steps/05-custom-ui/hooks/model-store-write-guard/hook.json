@@ -1,0 +1,9 @@
+{
+  "name": "model-store-write-guard",
+  "label": "Workflow write guard",
+  "description": "Blocks model-selected store writes and deletes. Authored workflow tools retain their declared store calls and enforce their own validation.",
+  "points": ["preToolUse"],
+  "capabilities": ["reads_tool_io", "gates_tools"],
+  "failPolicy": "closed",
+  "priority": 10
+}

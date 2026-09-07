@@ -1,31 +1,8 @@
 /**
- * outbound-reply-guard: the confirm surface's platform-level backstop.
- *
- * Step 7 adds the Gmail connection. Its READ surface (`read_messages`) is
- * side-effect-free, so `sync_submissions` calls it freely. Its WRITE surface
- * (`send_message`) mails a real broker, so `send_outcome` runs it only from the
- * operator-confirmed Send reply action. But the tool is registered for the
- * whole agent, and a future tool (or the chat agent) could call it. A hook
- * sees and may block EVERY tool call regardless of who made it, so it's the
- * right place to make the confirm policy true platform-wide.
- *
- * Fires on `preToolUse` for `send_message`, with two rules:
- *
- * 1. No human, no send (step 10). A scheduled automation or webhook run
- *    executes with nobody present to confirm, and the Send-reply modal it
- *    would have gone through never appears. `ctx.caller.source` is the
- *    VERIFIED trigger source (from the authenticated request, not the
- *    client-supplied scope context), so blocking on it cannot be spoofed
- *    from a request body.
- * 2. No decision, no reply. It resolves the recipient to a submission by
- *    `broker_email` and blocks the send when a matching submission has no
- *    saved risk finding (`find_<submission_id>`), i.e. it was never triaged.
- *
- * Everything else passes through. Fail-closed: if the store read throws, the
- * manifest's `failPolicy: "closed"` turns the failure into a block.
- *
- * Shipped as `.mjs` so the runtime's hook loader can import it directly.
- * Exports `createHook(config) => {run}`.
+ * Checks model-selected send_message calls against the recipient's triage.
+ * The send_outcome handler checks its own saved finding and recipient;
+ * its nested send does not enter preToolUse. Failed reads block through
+ * failPolicy.
  *
  * @typedef {{ toolName: string, args: Record<string, unknown> }} PreToolUsePayload
  * @typedef {{ get(store: string, key: string): Promise<Record<string, unknown> | null>,
@@ -78,10 +55,8 @@ export function createHook(config) {
         };
       }
 
-      // Resolve each recipient to the submissions that came from it. If none of
-      // the sender's submissions has been triaged, block: a reply before a
-      // decision. An unknown recipient (no matching submission) is not a
-      // submission reply, so it passes through.
+      // An unknown recipient (no matching submission) is not a submission
+      // reply, so it passes through.
       for (const email of recipients) {
         const subs = await ctx.store.query("submissions", {
           broker_email: email,

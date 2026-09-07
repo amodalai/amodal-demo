@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: a composite tool that delegates the judgment to a reviewer subagent, five stores, a custom React UI, a Gmail connection whose read-only surface syncs submissions in and whose confirm-gated surface emails outcomes back, and preToolUse guard hooks that enforce the hard rules platform-wide.",
+  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: a composite tool that delegates the judgment to a reviewer subagent, five stores, a custom React UI, a Gmail connection whose read-only surface syncs submissions in and whose confirm-gated surface emails outcomes back, and preToolUse hooks that restrict model-selected writes.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.steps.json && tsc --noEmit -p tsconfig.steps-app.json",
-    "test": "tsx --tsconfig tsconfig.app.json --test tests/*.test.ts src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts"
+    "test": "tsx --tsconfig tsconfig.app.json --test tests/*.test.ts src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts hooks/*/*.test.mjs"
   },
   "dependencies": {
     "@amodalai/gmail-connection-driver": "^0.1.2",

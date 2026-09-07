@@ -52,7 +52,7 @@ this step.
 | [`steps/03`](steps/03-code-vs-llm/)                     | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent |
 | [`steps/04`](steps/04-evals/)                           | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                |
 | [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                       |
-| [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
+| [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: validate model-selected calls with store-backed rules                                |
 | [`steps/07`](steps/07-gmail-connection/)                | External connections: Gmail policies and a public weather API through native OpenAPI discovery                 |
 | [`steps/08`](steps/08-custom-tool/)                     | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
 | [`steps/09`](steps/09-model-delegation/)                | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`                   |
@@ -113,9 +113,9 @@ decides which rows exist and is enforced by the platform. The persona from
 step 5 is a screen role: it decides how those rows are shown and is enforced
 by nothing, because the runtime gives the custom UI no user identity. Every
 combination is valid, and picking a desk never changes what a role may do.
-What a role may not do is structural instead: `decide_submission` and
-`submit_submission` are in no agent's `tools` list, so the model cannot take
-either step on either desk.
+`decide_submission` and `submit_submission` are absent from every agent's
+`tools` list. The model-store-write guard also blocks direct store mutations,
+so the model cannot record either action on either desk.
 
 See the diff: `diff -r -x steps -x node_modules -x dist steps/11-memory-and-surfaces .`
 
@@ -150,6 +150,17 @@ the saved assessment. The feature requires a Cloud runtime with native
 OpenAPI discovery support and internet access to NWS.
 
 ## How it works
+
+Store changes belong to the authored workflow tools. The default agent keeps
+`rw` store grants because composite tools need their declared writers registered.
+[`model-store-write-guard`](hooks/model-store-write-guard/index.mjs) blocks
+model-selected `store__*__set` and `store__*__remove` calls, so the model cannot
+forge a decision, alter a packet, or invent an audit event directly. Store
+reads and the declared workflow entry points remain available.
+
+`preToolUse` guards model-selected calls. Nested calls made by authored
+composite and durable handlers do not pass through this hook. Each handler
+must enforce the rules for its own writes and external calls.
 
 The two chat commands are triggers: a regex in the tool's own `tool.json`
 fires the tool from the request path, before the LLM sees the message, and
@@ -227,7 +238,7 @@ tools and the reviewer subagent); undeclared calls fail closed:
    naming the recommendation and the score. It then reports: the model
    summarizes the tool result in chat, and the UI refetches its table through
    `list_pipeline`. The `ready-to-quote-guard` hook backstops the missing-docs
-   rule for every writer.
+   rule on model-selected writes.
 
 What-if questions take a different path (and only for a present human: the
 dispatch entry is conditional in `agent.ts`). They don't match the `analyze`
@@ -244,8 +255,9 @@ uses the saved human decision, or the agent's recommendation before a decision.
 Quotes retain their conditions. Declines and referrals omit information requests
 and quote conditions. The [reply formatter](amodal/_lib/reply.ts) builds both the
 preview and the sent message. The audit event records the outcome emailed.
-The `outbound-reply-guard` hook blocks that send if the submission was never
-triaged: the confirm policy, made true for every caller.
+The handler checks the saved finding and broker address before it sends. The
+`outbound-reply-guard` separately checks model-selected `send_message` calls;
+it does not intercept the handler's nested send.
 
 How do submissions arrive? The first time a desk opens empty, the UI runs
 `seed_examples` over the invoke lane and the five demo submissions land in
@@ -276,6 +288,7 @@ underwriting guide file the reviewer subagent is given.
 | Path                                                  | What it is                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `amodal.json`                                         | Manifest: five stores, the `gmail` package, and `runtimeApp: { custom: true }`.                                                |
+| `hooks/model-store-write-guard/`                      | Blocks direct model store mutations; authored workflow tools own writes. |
 | `agents/default/`                                     | The chat agent: `AGENT.md` (prompt), `agent.json` (stores), and `agent.ts`, the code form whose tool/subagent entries carry `humanPresent` conditionals. |
 | `agents/underwriting-reviewer/`                       | The reviewer subagent that scores against the underwriting guide. Its `agent.json` grants `claims_stats` + `load_knowledge`.   |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
@@ -298,10 +311,10 @@ underwriting guide file the reviewer subagent is given.
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
 | `amodal/stores/`                                      | 5 store schemas: `submissions` (with `broker_email`, reply state, and the human decision), `documents`, `claims`, `risk_findings`, `events`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
-| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
-| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
+| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard checking required documents on model-selected writes.                                                           |
+| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on model-selected `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
 | `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. A desk picker scopes every request. |
-| `tests/`                                              | Unit tests for the tool handlers, the shared rules, the guard hook, the UI modules, and the step snapshots (`npm test`), kept out of `amodal/` so the runtime's loaders never pick them up. |
+| `tests/`                                              | Unit tests for the tool handlers, shared rules, UI modules, and step snapshots. `npm test` also runs sibling tests in `src/components/` and `hooks/`. Tests stay outside `amodal/` so runtime loaders do not pick them up. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 | `docs/screenshot.png`                                 | The screenshot at the top of this README, and the source for the marketplace card image. |
@@ -404,7 +417,7 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks the runtime code, the SPA, and every snapshot under steps/
-npm test           # unit tests for the tools, the rules, and the eight UI snapshots (tests/)
+npm test           # tools, rules, UI components, hooks, and tutorial snapshots
 ```
 
 ## Configuration
@@ -429,10 +442,10 @@ npm test           # unit tests for the tools, the rules, and the eight UI snaps
   and description are what the LLM sees. Edit `handle` to change the
   arithmetic. It deliberately returns numbers, not verdicts: thresholds live
   in `underwriting-guide.md`. The reviewer's `agent.json` `tools` list is the grant.
-- `hooks/*/hook.json`: the guards' config: `ready-to-quote-guard` (which write
-  tools it gates, which recommendation it blocks on missing docs) and
-  `outbound-reply-guard` (which send tool it gates; it also blocks any send
-  whose verified trigger source is an automation or webhook).
+- `hooks/*/hook.json`: `model-store-write-guard` blocks direct model store
+  mutations. `ready-to-quote-guard` checks missing documents on model-selected
+  writes. `outbound-reply-guard` checks model-selected sends and blocks them
+  when the verified trigger source is an automation or webhook.
 - `evals/*.md`: the eval suite, grown step by step; `whatif-inspection-received.md`
   pins the dispatch path. Re-run it after any edit here.
 - `amodal.json` `memory`: enabled, `editableBy: "any"`, `maxEntries: 50`.

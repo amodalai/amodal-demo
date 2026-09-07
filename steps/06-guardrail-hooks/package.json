@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: two triggered tools, a reviewer subagent, five stores, a custom React UI with a screen for the underwriter and a screen for the broker, and a preToolUse guard hook that enforces the one hard rule platform-wide.",
+  "description": "An Amodal example that triages commercial insurance submissions against an underwriting guide: two triggered tools, a reviewer subagent, five stores, a custom React UI with a screen for the underwriter and a screen for the broker, and preToolUse hooks that restrict model-selected writes and check required documents.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json",
+    "test": "node --test hooks/*/*.test.mjs"
   },
   "dependencies": {
     "@amodalai/react": "0.3.124",

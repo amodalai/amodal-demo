@@ -141,6 +141,17 @@ OpenAPI discovery support and internet access to NWS.
 
 ## How it works
 
+Store changes belong to the authored workflow tools. The default agent keeps
+`rw` store grants because composite tools need their declared writers registered.
+[`model-store-write-guard`](hooks/model-store-write-guard/index.mjs) blocks
+model-selected `store__*__set` and `store__*__remove` calls, so the model cannot
+forge a decision, alter a packet, or invent an audit event directly. Store
+reads and the declared workflow entry points remain available.
+
+`preToolUse` guards model-selected calls. Nested calls made by authored
+composite and durable handlers do not pass through this hook. Each handler
+must enforce the rules for its own writes and external calls.
+
 The two chat commands are triggers: a regex in the tool's own `tool.json`
 fires the tool from the request path, before the LLM sees the message, and
 the model then reports the tool's result:
@@ -207,15 +218,16 @@ tools and the reviewer subagent); undeclared calls fail closed:
    saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and reports: the model summarizes the tool result in
    chat, and the UI refetches its `useStoreQuery` data. The
-   `ready-to-quote-guard` hook backstops that last rule for every writer.
+   `ready-to-quote-guard` hook checks the same rule on model-selected writes.
 
 Once a submission has a finding, **Send reply** runs `send_outcome`. The email
 uses the saved human decision, or the agent's recommendation before a decision.
 Quotes retain their conditions. Declines and referrals omit information requests
 and quote conditions. The [reply formatter](amodal/_lib/reply.ts) builds both the
 preview and the sent message. The audit event records the outcome emailed.
-The `outbound-reply-guard` hook blocks that send if the submission was never
-triaged: the confirm policy, made true for every caller.
+The handler checks the saved finding and broker address before it sends. The
+`outbound-reply-guard` separately checks model-selected `send_message` calls;
+it does not intercept the handler's nested send.
 
 How do submissions arrive? The first time the screen opens on an empty
 store, the UI runs `seed_examples` over the invoke lane and the five demo
@@ -245,6 +257,7 @@ underwriting guide file the reviewer subagent is given.
 | Path                                                  | What it is                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `amodal.json`                                         | Manifest: five stores, the `gmail` package, and `runtimeApp: { custom: true }`.                                                |
+| `hooks/model-store-write-guard/`                      | Blocks direct model store mutations; authored workflow tools own writes. |
 | `agents/default/`                                     | The chat agent (`agent.json` + `AGENT.md`): the implicit default surface; its config scopes the session's tools and stores.    |
 | `agents/underwriting-reviewer/`                       | The reviewer subagent that scores against the underwriting guide. Its `agent.json` grants `claims_stats`.                      |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.                    |
@@ -266,8 +279,8 @@ underwriting guide file the reviewer subagent is given.
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over (passed to it as input).                                            |
 | `amodal/stores/`                                      | 5 store schemas: `submissions` (with `broker_email`, reply state, and the human decision), `documents`, `claims`, `risk_findings`, `events`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                                |
-| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                                           |
-| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a submission is triaged.                                                 |
+| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard checking required documents on model-selected writes.                                                           |
+| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on model-selected `send_message`: no reply before a submission is triaged.                                                 |
 | `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
@@ -365,9 +378,9 @@ npm run typecheck  # typechecks both the runtime code (amodal/) and the SPA (src
   and description are what the LLM sees. Edit `handle` to change the
   arithmetic. It deliberately returns numbers, not verdicts: thresholds live
   in `underwriting-guide.md`. The reviewer's `agent.json` `tools` list is the grant.
-- `hooks/*/hook.json`: the guards' config: `ready-to-quote-guard` (which write
-  tools it gates, which recommendation it blocks on missing docs) and
-  `outbound-reply-guard` (which send tool it gates).
+- `hooks/*/hook.json`: `model-store-write-guard` blocks direct model store
+  mutations. `ready-to-quote-guard` checks missing documents on model-selected
+  writes. `outbound-reply-guard` checks model-selected sends.
 - `evals/*.md`: the eval suite from step 4 plus `analyze-repeat-claims.md` and
   `analyze-claims-window.md`. Re-run it after any edit here.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in

@@ -83,13 +83,13 @@ it must be operator-confirmed, never automatic.
 button) composes the decision email and sends it, but only after the operator
 reviews the exact message in a modal and confirms.
 
-The gate, enforced platform-wide. The confirm lives in the UI, but the
-`send_message` tool exists for the whole agent, and a future tool (or the chat
-agent) could call it. As in step 6, a hook makes the policy true everywhere:
-[`outbound-reply-guard`](hooks/outbound-reply-guard/index.mjs) fires on any
-`send_message`, resolves the recipient to a submission by `broker_email`, and
-blocks the send if that submission has no saved finding: no reply before a
-decision, whoever tries.
+The handler checks the saved finding and broker address before sending.
+The UI requests operator confirmation.
+[`outbound-reply-guard`](hooks/outbound-reply-guard/index.mjs) checks
+model-selected `send_message` calls separately. It resolves the recipient by
+`broker_email` and blocks a known recipient whose submissions have no saved
+finding. It does not intercept the handler's nested send or establish that a
+human approved a particular message.
 
 See the diff: `diff -r steps/06-guardrail-hooks steps/07-gmail-connection`.
 
@@ -124,6 +124,17 @@ the saved assessment. The feature requires a Cloud runtime with native
 OpenAPI discovery support and internet access to NWS.
 
 ## How it works
+
+Store changes belong to the authored workflow tools. The default agent keeps
+`rw` store grants because composite tools need their declared writers registered.
+[`model-store-write-guard`](hooks/model-store-write-guard/index.mjs) blocks
+model-selected `store__*__set` and `store__*__remove` calls, so the model cannot
+forge a decision, alter a packet, or invent an audit event directly. Store
+reads and the declared workflow entry points remain available.
+
+`preToolUse` guards model-selected calls. Nested calls made by authored
+composite and durable handlers do not pass through this hook. Each handler
+must enforce the rules for its own writes and external calls.
 
 The agent still has two triggered custom tools: a message that matches the
 pattern fires the handler directly, no LLM round trip:
@@ -175,15 +186,16 @@ The `analyze` path runs the same four-stage loop as before, in the shared
    required docs be `ready-to-quote`. If code overrides the recommendation, the
    saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and returns the result. The `ready-to-quote-guard`
-   hook backstops that last rule for every writer.
+   hook checks the same rule on model-selected writes.
 
 Once a submission has a finding, **Send reply** runs `send_outcome`. The email
 uses the saved human decision, or the agent's recommendation before a decision.
 Quotes retain their conditions. Declines and referrals omit information requests
 and quote conditions. The [reply formatter](amodal/_lib/reply.ts) builds both the
 preview and the sent message. The audit event records the outcome emailed.
-The `outbound-reply-guard` hook blocks that send if the submission was never
-triaged: the confirm policy, made true for every caller.
+The handler checks the saved finding and broker address before it sends. The
+`outbound-reply-guard` separately checks model-selected `send_message` calls;
+it does not intercept the handler's nested send.
 
 How do submissions arrive? The first time the screen opens on an empty
 store, the UI runs `seed_examples` over the invoke lane and the four demo
@@ -213,8 +225,9 @@ underwriting guide file the reviewer subagent is given.
 | Path                                                  | What it is                                                                                                      |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `amodal.json`                                         | Manifest: name, version, memory off, the `gmail` package, and `runtimeApp: { custom: true }`.                    |
+| `hooks/model-store-write-guard/`                      | Blocks direct model store mutations; authored workflow tools own writes. |
 | `amodal/connections/gmail/`                           | The Gmail connection: `spec.json` (bound by `protocol`, env-based token) + README. Read + confirm surfaces.      |
-| `evals/`                                              | The eval suite from step 4, unchanged. Re-run it before promoting. `never-decides` and `submission-history` cover the boundary the UI depends on. |
+| `evals/`                                              | The agent eval suite, including direct-write bypass attempts. Re-run it before promoting. `never-decides` and `submission-history` cover the boundary the UI depends on. |
 | `agents/default/`                                     | The chat agent: its prompt (`AGENT.md`) and its tools + store access (`agent.json`).                             |
 | `agents/underwriting-reviewer/`                       | The scoped subagent that holds the underwriting judgment.                                                        |
 | `amodal/tools/sync_submissions/`                      | Durable invoke tool for **Sync inbox**: the Gmail read-only surface (`read_messages` + offline fallback).        |
@@ -233,8 +246,8 @@ underwriting guide file the reviewer subagent is given.
 | `amodal/knowledge/underwriting-guide.md`              | The fictional underwriting guide the reviewer reasons over.                                                      |
 | `amodal/stores/`                                      | 5 store schemas: `submissions` (with `broker_email`, reply state, and the human decision), `documents`, `claims`, `risk_findings`, `events`. All `deletable`, which registers the `__remove` tools the reset uses. |
 | `amodal/_lib/examples.ts` / `demo-data.ts`            | The demo dataset and the code that hydrates it into the stores.                                                  |
-| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard enforcing the missing-docs rule for every writer.                                             |
-| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on `send_message`: no reply before a submission is triaged.                                   |
+| `hooks/ready-to-quote-guard/`                         | `preToolUse` guard checking required documents on model-selected writes.                                             |
+| `hooks/outbound-reply-guard/`                         | `preToolUse` guard on model-selected `send_message`: no reply before a submission is triaged.                                   |
 | `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                           |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                        |
@@ -306,11 +319,11 @@ npm run typecheck  # typechecks both the runtime tools (amodal/) and the SPA (sr
   invoke tools are deliberately in no agent's tools list.
 - `amodal.json` manifest: name, version, the `gmail` package, `runtimeApp`,
   memory off.
-- `hooks/*/hook.json`: the guards' config: `ready-to-quote-guard` (which write
-  tools it gates, which recommendation it blocks on missing docs) and
-  `outbound-reply-guard` (which send tool it gates).
-- `evals/*.md`: the eval suite from step 4, unchanged. Re-run it after any
-  edit here.
+- `hooks/*/hook.json`: `model-store-write-guard` blocks direct model store
+  mutations. `ready-to-quote-guard` checks missing documents on model-selected
+  writes. `outbound-reply-guard` checks model-selected sends.
+- `evals/*.md`: agent behavior checks, including `never-decides-via-store.md`
+  for direct-write bypass attempts. Re-run them after editing the workflow.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in
   the stores, so each triage is a pure function of what is in them and there is
   nothing to carry across sessions in conversation memory.
