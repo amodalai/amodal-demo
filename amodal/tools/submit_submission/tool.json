@@ -46,6 +46,7 @@
       "store__claims__query",
       "store__claims__set",
       "store__risk_findings__set",
+      "store__risk_findings__remove",
       "store__events__set"
     ],
     "subagents": ["underwriting-reviewer"]

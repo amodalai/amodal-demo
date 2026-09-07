@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { submitSubmission } from "../amodal/_lib/submit.js";
 import type { AnalyzeDeps, DocumentRow } from "../amodal/_lib/underwriting-analysis.js";
 import submit_submission from "../amodal/tools/submit_submission/handler.js";
-import { assertDeclared } from "./helpers.js";
+import send_outcome from "../amodal/tools/send_outcome/handler.js";
+import { assertDeclared, stepsFrom } from "./helpers.js";
 
 const NOW = new Date("2026-09-04T10:00:00.000Z");
 
@@ -20,12 +21,27 @@ const FIELDS = {
   documents: DOCS,
 };
 
-function fakeDesk(opts: { previous?: Record<string, unknown>; existingDocs?: string[]; failReview?: boolean } = {}) {
+function fakeDesk(opts: {
+  previous?: Record<string, unknown>;
+  finding?: Record<string, unknown>;
+  existingDocs?: string[];
+  failReview?: boolean;
+  removeError?: Error;
+} = {}) {
   const calls: Array<[string, Record<string, unknown>]> = [];
+  let submission = opts.previous;
+  let finding = opts.finding;
   const deps: AnalyzeDeps = {
     async callTool(name, args) {
       calls.push([name, args]);
-      if (name === "store__submissions__get") return opts.previous ?? { error: "not found" };
+      if (name === "store__submissions__get") return submission ?? { error: "not found" };
+      if (name === "store__submissions__set") submission = args.value as Record<string, unknown>;
+      if (name === "store__risk_findings__get") return finding ?? { error: "not found" };
+      if (name === "store__risk_findings__set") finding = args.value as Record<string, unknown>;
+      if (name === "store__risk_findings__remove") {
+        if (opts.removeError) throw opts.removeError;
+        finding = undefined;
+      }
       if (name === "store__documents__query") {
         return { documents: (opts.existingDocs ?? []).map((document_id) => ({ payload: { document_id } })) };
       }
@@ -44,7 +60,7 @@ function fakeDesk(opts: { previous?: Record<string, unknown>; existingDocs?: str
     sessionId: "sess_1",
   };
   const writes = () => calls.filter(([n]) => n.endsWith("__set"));
-  return { deps, calls, writes };
+  return { deps, calls, writes, submission: () => submission, finding: () => finding };
 }
 
 test("files the submission, then its documents, then the event, then reviews it", async () => {
@@ -169,3 +185,51 @@ test("the handler rejects an incomplete filing and normalises the packet", async
   assert.equal(doc.required, false);
   assert.equal(doc.kind, "other");
 });
+
+for (const dir of [".", ...stepsFrom("05-custom-ui")]) {
+  const { submitSubmission: submit } = await import(`../${dir}/amodal/_lib/submit.js`);
+
+  test(`${dir} removes the previous finding when a resubmission's review fails`, async () => {
+    const desk = fakeDesk({
+      previous: {
+        submission_id: "sub_a",
+        revision: 2,
+        created_at: "2026-01-01T00:00:00.000Z",
+        recommendation: "ready-to-quote",
+      },
+      finding: { recommendation: "ready-to-quote", missing_info: [], conditions: [] },
+      failReview: true,
+    });
+    await assert.rejects(
+      submit({ ...FIELDS, submission_id: "sub_a" }, desk.deps),
+      /was filed as sub_a, but the review failed: reviewer timed out/,
+    );
+    assert.equal(desk.finding(), undefined, "the prior revision's review must not survive");
+    assert.equal(desk.submission()?.revision, 3);
+    assert.equal(desk.submission()?.status, "new");
+    assert.equal(desk.submission()?.recommendation, null);
+    assert.ok(!desk.calls.some(([name]) => /store__claims__(set|remove)/.test(name)));
+    assertDeclared("submit_submission", desk.calls.map(([name]) => name));
+
+    await assert.rejects(send_outcome({ submission_id: "sub_a" }, {
+      log: () => {},
+      signal: new AbortController().signal,
+      callTool: desk.deps.callTool as never,
+    }), /No finding for sub_a\. Analyze it before replying\./);
+    assert.ok(!desk.calls.some(([name]) => name === "send_message"));
+  });
+
+  test(`${dir} does not file a new revision if the previous finding cannot be removed`, async () => {
+    const desk = fakeDesk({
+      previous: { submission_id: "sub_a", revision: 2 },
+      finding: { recommendation: "ready-to-quote" },
+      removeError: new Error("Finding store unavailable"),
+    });
+    await assert.rejects(
+      submit({ ...FIELDS, submission_id: "sub_a" }, desk.deps),
+      /Finding store unavailable/,
+    );
+    assert.equal(desk.submission()?.revision, 2);
+    assert.deepEqual(desk.writes(), []);
+  });
+}

@@ -1,6 +1,7 @@
 import { NEW_SUBMISSION_DEFAULTS } from "./demo-data.js";
 import { appendEvent } from "./events.js";
 import {
+  findingKey,
   rows,
   runUnderwritingAnalysis,
   storeGetResult,
@@ -76,6 +77,9 @@ export async function submitSubmission(
     revision,
     created_at: previous?.created_at ?? nowIso,
   };
+  if (resubmitting) {
+    await deps.callTool("store__risk_findings__remove", { key: findingKey(submission_id) });
+  }
   await deps.callTool("store__submissions__set", { key: submission_id, value: submission });
 
   // The packet is replaced wholesale, so the old rows are removed rather than
