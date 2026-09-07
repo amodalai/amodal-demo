@@ -53,4 +53,5 @@ export async function runAnalyzeCommand(
       throw new Error(ev.message || "Analysis failed.");
     }
   }
+  throw new Error("Analysis ended without a saved result. Try again.");
 }

@@ -104,7 +104,16 @@ test("throws a fallback message on an empty stream error event", async () => {
   await assert.rejects(runAnalyzeCommand(client, "sub_x", "d"), /Analysis failed\./);
 });
 
-test("a stream that never reports the tool resolves without throwing", async () => {
-  const { client } = fakeClient([{ type: "text", text: "no tool ran" }]);
-  await runAnalyzeCommand(client, "sub_x", "d");
-});
+for (const events of [
+  [],
+  [started],
+  [{ type: "text_delta", content: "Reviewing…" }],
+  [{ type: "done", reason: "model_stop" }],
+  [started, { type: "done", reason: "error" }],
+  [started, { type: "done", reason: "max_turns" }],
+]) {
+  test(`rejects an analysis without its saved result: ${JSON.stringify(events)}`, async () => {
+    const { client } = fakeClient(events);
+    await assert.rejects(runAnalyzeCommand(client, "sub_x", "d"), /without a saved result/);
+  });
+}
