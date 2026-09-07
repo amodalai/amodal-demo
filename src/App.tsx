@@ -82,6 +82,7 @@ export default function App() {
   const [resetError, setResetError] = useState<string | undefined>();
   const [syncError, setSyncError] = useState<string | undefined>();
   const [sendError, setSendError] = useState<string | undefined>();
+  const [sendNotice, setSendNotice] = useState<string | undefined>();
   const [replyTarget, setReplyTarget] = useState<{
     desk: string;
     s: SubmissionRow;
@@ -177,6 +178,7 @@ export default function App() {
     setSeedError(null);
     setSyncError(undefined);
     setSendError(undefined);
+    setSendNotice(undefined);
     setDesk(id);
     try {
       localStorage.setItem("uw-desk", id);
@@ -227,8 +229,9 @@ export default function App() {
     if (!replyTarget || replyTarget.desk !== desk) return;
     const scope = scopeRef.current;
     setSendError(undefined);
+    setSendNotice(undefined);
     try {
-      await runTool(sendReply, {
+      const result = await runTool<Record<string, unknown>, { recording_warning?: string }>(sendReply, {
         submission_id: replyTarget.s.submission_id,
         confirmation: {
           to: replyTarget.s.broker_email?.trim() ?? "",
@@ -237,8 +240,9 @@ export default function App() {
         },
       });
       if (scopeRef.current !== scope) return;
+      setSendNotice(`Email sent to ${replyTarget.s.broker_email?.trim()}. ${result?.recording_warning ?? ""}`.trim());
+      setReplyTarget(null);
       await refetch();
-      if (scopeRef.current === scope) setReplyTarget(null);
     } catch (err) {
       if (scopeRef.current === scope) setSendError(errorMessage(err, "Sending the reply failed."));
     }
@@ -321,6 +325,7 @@ export default function App() {
       </Sidebar>
 
       <main className="main">
+        {sendNotice ? <div className="banner" role="status">{sendNotice}</div> : null}
         {pipelineError ? (
           <div className="banner error" role="alert">
             {pipelineError}{" "}

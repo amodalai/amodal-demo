@@ -1,5 +1,5 @@
 import type { CustomToolContext } from "../../_types/tool-context.js";
-import { updatedSubmission } from "../../_lib/demo-data.js";
+import { NEW_SUBMISSION_DEFAULTS, updatedSubmission } from "../../_lib/demo-data.js";
 import { buildReply } from "../../_lib/reply.js";
 import { appendEvent, eventCtx } from "../../_lib/events.js";
 import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js";
@@ -130,23 +130,57 @@ export default async function send_outcome(
   }
 
   const nowIso = new Date(ctx.now ? ctx.now() : Date.now()).toISOString();
-  const updatedSub = updatedSubmission(sub, {
-    reply_status: "sent",
-    replied_at: nowIso,
-  });
-  await ctx.callTool("store__submissions__set", {
-    key: submission_id,
-    value: updatedSub,
-  });
-  await appendEvent(eventCtx(ctx, nowIso), {
-    submission_id,
-    kind: "replied",
-    actor: "underwriter",
-    summary: `Emailed the ${outcome} outcome to ${to}.`,
-    revision: typeof updatedSub.revision === "number" ? updatedSub.revision : null,
-  });
+  const warnings: string[] = [];
+  const recording = {
+    ...eventCtx(ctx, nowIso),
+    async callTool(name: string, args: Record<string, unknown>) {
+      const value = await ctx.callTool!(name, args);
+      if (value && typeof value === "object" && "error" in value) {
+        throw new Error(String(value.error));
+      }
+      return value;
+    },
+  };
+  // Store tools have no compare-and-set; reread to protect edits made during delivery.
+  try {
+    const current = storeGetResult<SubmissionRow>(
+      await ctx.callTool("store__submissions__get", { key: submission_id }),
+    );
+    const currentFinding = storeGetResult<FindingRow>(
+      await ctx.callTool("store__risk_findings__get", { key: findingKey(submission_id) }),
+    );
+    const currentReply = current && currentFinding ? buildReply(current, currentFinding, message) : undefined;
+    if (current && current.revision === sub.revision && current.created_at === sub.created_at &&
+      current.broker_email?.trim() === to && currentReply?.subject === subject && currentReply.body === body) {
+      await recording.callTool("store__submissions__set", {
+        key: submission_id,
+        value: updatedSubmission(current, { reply_status: "sent", replied_at: nowIso }),
+      });
+    } else {
+      warnings.push("The current packet changed or is unavailable; its reply status was not updated.");
+    }
+  } catch (error) {
+    ctx.log(`send_outcome: email sent; reply status recording failed: ${String(error)}`);
+    warnings.push("Reply status could not be confirmed.");
+  }
+  try {
+    await appendEvent(recording, {
+      submission_id,
+      kind: "replied",
+      actor: "underwriter",
+      summary: `Emailed the ${outcome} outcome to ${to}.`,
+      revision: typeof sub.revision === "number" ? sub.revision : NEW_SUBMISSION_DEFAULTS.revision,
+    });
+  } catch (error) {
+    ctx.log(`send_outcome: email sent; delivery history recording failed: ${String(error)}`);
+    warnings.push("Delivery history could not be confirmed.");
+  }
 
   return {
+    sent: true,
+    recording_warning: warnings.length
+      ? `${warnings.join(" ")} The email was sent; do not resend it to repair this record.`
+      : undefined,
     submission_id,
     to,
     recommendation: finding.recommendation,

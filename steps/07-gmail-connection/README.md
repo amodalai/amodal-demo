@@ -204,6 +204,17 @@ refresh the page, and reopen **Send reply** to review it again. Direct callers
 must provide `confirmation: { to, subject, body }`; an optional `message` note
 must be included in the confirmed final body.
 
+After the email connection acknowledges the send, the handler rereads the submission and
+finding. It records reply status only when the revision, creation time, and
+confirmed email still match, merging that status onto the current row. The
+history event records the original emailed outcome and revision. Store reads
+and writes are separate operations; this check is not an atomic lock.
+
+The result's `sent: true` acknowledges the send. A `recording_warning` reports
+skipped or failed status/history recording. The UI closes the confirmation and
+shows that acknowledgement even if recording or refreshing the pipeline fails.
+Refresh to inspect the current state; do not resend an email to repair its record.
+
 How do submissions arrive? The first time the screen opens on an empty
 store, the UI runs `seed_examples` over the invoke lane and the four demo
 submissions land in the stores. Real mail comes through **Sync inbox**

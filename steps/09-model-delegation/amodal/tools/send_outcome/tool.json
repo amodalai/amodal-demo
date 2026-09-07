@@ -1,5 +1,5 @@
 {
-  "description": "Email the saved human decision, or the recommendation before a decision, back to the broker over the Gmail connection's confirm surface, then record the outbound reply on the submission. Requires a saved risk finding and the exact confirmed recipient, subject, and final body. Rejects a changed preview before sending. Fired only from the operator-confirmed Send reply action via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
+  "description": "Email the saved human decision, or the recommendation before a decision, back to the broker over the Gmail connection's confirm surface, then record the outbound reply on the submission. Requires a saved risk finding and the exact confirmed recipient, subject, and final body. Rejects a changed preview before sending. After delivery, records reply state only if the current packet still matches. Returns sent: true with a recording_warning when state or history could not be recorded reliably. Fired only from the operator-confirmed Send reply action via the direct-invoke lane; not listed in any agent's tools, so the model cannot call it.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,

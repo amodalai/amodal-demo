@@ -59,6 +59,7 @@ export default function App() {
   const [resetError, setResetError] = useState<string | undefined>();
   const [syncError, setSyncError] = useState<string | undefined>();
   const [sendError, setSendError] = useState<string | undefined>();
+  const [sendNotice, setSendNotice] = useState<string | undefined>();
   const [replyTarget, setReplyTarget] = useState<{ s: SubmissionRow; finding: FindingRow } | null>(
     null,
   );
@@ -177,8 +178,10 @@ export default function App() {
   async function onConfirmSend() {
     if (!replyTarget) return;
     setSendError(undefined);
+    setSendNotice(undefined);
+    let deliveryNotice: string | undefined;
     try {
-      await runTool(sendReply, {
+      const result = await runTool<Record<string, unknown>, { recording_warning?: string }>(sendReply, {
         submission_id: replyTarget.s.submission_id,
         confirmation: {
           to: replyTarget.s.broker_email?.trim() ?? "",
@@ -186,10 +189,13 @@ export default function App() {
           body: previewReply(replyTarget.s, replyTarget.finding),
         },
       });
-      await refetch();
+      deliveryNotice = `Email sent to ${replyTarget.s.broker_email?.trim()}. ${result?.recording_warning ?? ""}`.trim();
+      setSendNotice(deliveryNotice);
       setReplyTarget(null);
+      await refetch();
     } catch (err) {
-      setSendError(errorMessage(err, "Sending the reply failed."));
+      if (deliveryNotice) setSendNotice(`${deliveryNotice} The pipeline could not be refreshed. Refresh the page; the email was already sent.`);
+      else setSendError(errorMessage(err, "Sending the reply failed."));
     }
   }
 
@@ -246,6 +252,7 @@ export default function App() {
       </Sidebar>
 
       <main className="main">
+        {sendNotice ? <div className="banner" role="status">{sendNotice}</div> : null}
         {pipelineError ? (
           <div className="banner error" role="alert">
             {errorMessage(pipelineError, "Loading the pipeline failed.")}{" "}

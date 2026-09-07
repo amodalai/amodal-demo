@@ -506,3 +506,36 @@ test("a reply changed in another tab is rejected and leaves the confirmation ope
   assert.ok(container.querySelector("[role=dialog]"));
   assert.match(container.textContent!, /reply changed.*refresh.*reopen Send reply/);
 });
+
+test("a delivered email with a recording warning closes confirmation and shows its acknowledgement", async () => {
+  const ordinary = handle;
+  handle = async (request) => request.tool === "send_outcome"
+    ? { sent: true, to: submission.broker_email, message_id: "message_a", recording_warning: "Reply status could not be recorded. Do not resend the email to repair this record." }
+    : ordinary(request);
+  await mount();
+  await click("Send reply");
+  await click("Confirm & send");
+  assert.equal(container.querySelector("[role=dialog]"), null);
+  assert.match(container.textContent!, /Email sent to broker@example.com/);
+  assert.match(container.textContent!, /Reply status could not be recorded.*Do not resend/);
+});
+
+test("a pipeline refresh failure after sending cannot present the email as unsent", async () => {
+  let reads = 0;
+  handle = async ({ tool }) => {
+    if (tool === "list_pipeline") {
+      if (++reads > 1) throw new Error("Pipeline offline");
+      return pipelines.get(pacific);
+    }
+    return { sent: true, to: submission.broker_email, message_id: "message_a" };
+  };
+  await mount();
+  await click("Send reply");
+  await click("Confirm & send");
+  assert.equal(container.querySelector("[role=dialog]"), null);
+  assert.match(container.textContent!, /Email sent to broker@example.com/);
+  assert.match(container.textContent!, /Pipeline offline/);
+  assert.equal(buttons("Retry").length, 1);
+  assert.match(container.textContent!, /Shared applicant/);
+  assert.equal(requests.filter(({ tool }) => tool === "send_outcome").length, 1);
+});
