@@ -9,6 +9,7 @@ const SUBMISSION = {
   business_type: "Restaurant",
   revision: 3,
   status: "in-review",
+  created_at: "2026-09-01T08:00:00.000Z",
 };
 const REVIEW = JSON.stringify({ recommendation: "ready-to-quote", risk_score: 42 });
 
@@ -80,5 +81,16 @@ test("a failed current-row read rejects the review before any writes", async () 
     return callTool(name, args);
   };
   await assert.rejects(runUnderwritingAnalysis("sub_a", deps), /Store unavailable/);
+  assert.ok(!calls.some((name) => name.endsWith("__set")));
+});
+
+test("a review cannot overwrite a packet recreated with the same id and revision", async () => {
+  const { deps, calls, reviewed } = reviewingDesk(() => ({
+    ...SUBMISSION,
+    created_at: "2026-09-07T08:00:00.000Z",
+    status: "new",
+  }));
+  await assert.rejects(runUnderwritingAnalysis("sub_a", deps), /replaced during analysis/);
+  assert.equal(reviewed(), true);
   assert.ok(!calls.some((name) => name.endsWith("__set")));
 });

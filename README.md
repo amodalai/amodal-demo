@@ -284,7 +284,7 @@ detail screen shows its own slice of it, and **Guide** renders the same
 underwriting guide file the reviewer subagent is given.
 
 When analyzing a saved packet, the tool reads the submission again after the
-reviewer returns. A deleted submission or changed revision rejects the result
+reviewer returns. A deleted or recreated submission or changed revision rejects the result
 before any review writes. An unchanged revision keeps the latest human decision
 and reply fields. The final read and writes are separate operations: a write
 after this check can still race with the save. Packets filed or seeded in the

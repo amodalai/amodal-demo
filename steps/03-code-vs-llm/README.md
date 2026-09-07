@@ -118,7 +118,7 @@ run. `seed` still works as an explicit load of everything at once. (Both are
 idempotent, safe to resend.)
 
 When analyzing a saved packet, the tool reads the submission again after the
-reviewer returns. A deleted submission or changed revision rejects the result
+reviewer returns. A deleted or recreated submission or changed revision rejects the result
 before any review writes. The final read and writes are separate operations: a write
 after this check can still race with the save. Demo packets seeded in the
 same durable run use in-memory rows because pending writes cannot be read back.

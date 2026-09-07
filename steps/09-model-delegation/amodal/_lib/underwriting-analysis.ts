@@ -286,6 +286,9 @@ export async function runUnderwritingAnalysis(
   if (!currentSub) {
     throw new Error(`Submission ${submission_id} was removed during analysis. The review was not saved.`);
   }
+  if (currentSub.created_at !== sub.created_at) {
+    throw new Error(`Submission ${submission_id} was replaced during analysis. Analyze the current packet again.`);
+  }
   if ((currentSub.revision ?? 1) !== (sub.revision ?? 1)) {
     throw new Error(`Submission ${submission_id} revision changed during analysis. Analyze the current packet again.`);
   }
