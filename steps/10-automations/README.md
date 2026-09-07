@@ -317,6 +317,10 @@ counts above the table. These labels follow the analysis queue; they do not
 report individual checks. The applicant page holds the full risk score,
 assessment cards, missing information, and conditions.
 
+Failed reads show an error and a **Retry** control. A failed refresh keeps
+the last complete pipeline. Automatic seeding and review wait until the
+pipeline has loaded.
+
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain

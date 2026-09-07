@@ -20,8 +20,9 @@ const { createRoot } = await import("react-dom/client");
 const sdk = await import("@amodalai/react");
 const require = createRequire(import.meta.url);
 const quiet = () => null;
+let endChat: () => void;
 const overrides: Record<string, unknown> = {
-  "@amodalai/react": { ...sdk, ChatWidget: quiet },
+  "@amodalai/react": { ...sdk, ChatWidget: ({ onStreamEnd }: { onStreamEnd: () => void }) => { endChat = onStreamEnd; return null; } },
   "./components/AutoSyncToggle": { AutoSyncToggle: quiet },
   "./components/WeatherAlerts": { WeatherAlerts: quiet },
   "./screens/Guide": { Guide: quiet },
@@ -61,6 +62,7 @@ let pipelines: Map<string, Pipeline>;
 let requests: Request[];
 let handle: (request: Request) => Promise<unknown>;
 let analyze: (scope: string, id: string) => Promise<void>;
+let readStore: (store: string) => Promise<unknown[]>;
 const completion = (result: unknown) => new Response(JSON.stringify({
   sessionId: "session", outcome: { kind: "complete" }, result,
 }), { headers: { "Content-Type": "application/json" } });
@@ -79,11 +81,11 @@ async function click(label: string) {
   assert.ok(button, `button ${label} exists`);
   await act(async () => { button.click(); await flush(); });
 }
-async function mount(role = "underwriter") {
+async function mount(role = "underwriter", app = App, hash = role === "broker" ? "#/new" : "#/pipeline") {
   localStorage.setItem("uw-persona", role);
-  window.location.hash = role === "broker" ? "#/new" : "#/pipeline";
+  window.location.hash = hash;
   await act(async () => {
-    root.render(createElement(sdk.AmodalProvider, { runtimeUrl: "https://runtime.example", children: createElement(App) }));
+    root.render(createElement(sdk.AmodalProvider, { runtimeUrl: "https://runtime.example", children: createElement(app) }));
     await flush();
   });
 }
@@ -115,9 +117,20 @@ beforeEach(() => {
   requests = [];
   handle = async ({ tool, scope }) => tool === "list_pipeline" ? pipelines.get(scope) : {};
   analyze = async () => {};
+  readStore = async (store) => {
+    const field = store === "risk_findings" ? "findings" : store as keyof Pipeline;
+    return pipelines.get(pacific)![field];
+  };
   globalThis.fetch = async (url, options) => {
-    const body = JSON.parse(String(options?.body));
+    const body = options?.body ? JSON.parse(String(options.body)) : {};
     const path = new URL(String(url)).pathname;
+    if (path.startsWith("/api/stores/")) {
+      const store = path.split("/")[3];
+      requests.push({ tool: `read:${store}`, scope: "", input: {} });
+      return new Response(JSON.stringify({ documents: (await readStore(store)).map((payload, i) => ({ key: String(i), payload })) }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     if (path === "/chat") {
       const id = body.message.replace(/^analyze /, "");
       await analyze(body.scope_id, id);
@@ -288,5 +301,166 @@ for (const action of ["file", "send", "reset"]) {
     await act(async () => { pending.resolve(pipelines.get(pacific)); await flush(); });
     if (action === "file") assert.equal(window.location.hash, "#/new");
     else assert.ok(container.querySelector("[role=dialog]"));
+  });
+}
+
+const steps = [
+  "05-custom-ui", "06-guardrail-hooks", "07-gmail-connection", "08-custom-tool",
+  "09-model-delegation", "10-automations", "11-memory-and-surfaces",
+];
+const stepApps = steps.map((step) => ({
+  step, app: load(new URL(`../steps/${step}/src/App.tsx`, import.meta.url).pathname).default,
+}));
+for (const { step, app } of stepApps) {
+  test(`${step}: a complete store read displays the pipeline`, async () => {
+    await mount("underwriter", app);
+    assert.match(container.textContent!, /Shared applicant/);
+    assert.equal(requests.filter((r) => r.tool.startsWith("read:")).length, 4);
+  });
+}
+
+test("a failed desk read reports its error and retry replaces the error with rows", async () => {
+  const ordinary = handle;
+  handle = async () => { throw new Error("Reads unavailable"); };
+  await mount();
+  assert.match(container.textContent!, /Reads unavailable/);
+  assert.doesNotMatch(container.textContent!, /No submissions on this desk|dataset loads itself/);
+  assert.equal(requests.filter((r) => r.tool === "seed_examples").length, 0);
+  handle = ordinary;
+  await click("Retry");
+  assert.match(container.textContent!, /Shared applicant/);
+  assert.doesNotMatch(container.textContent!, /Reads unavailable/);
+});
+
+test("a failed deep-link read does not claim the submission is absent", async () => {
+  handle = async () => { throw new Error("Reads unavailable"); };
+  await mount("underwriter", App, "#/submission/shared");
+  assert.match(container.textContent!, /Reads unavailable/);
+  assert.doesNotMatch(container.textContent!, /That submission is not on this desk/);
+});
+
+test("a chat refresh failure keeps cached rows and offers a read retry", async () => {
+  await mount();
+  const ordinary = handle;
+  handle = async () => { throw new Error("Reads unavailable"); };
+  await act(async () => { endChat(); await flush(); });
+  assert.match(container.textContent!, /Shared applicant/);
+  assert.match(container.textContent!, /Reads unavailable/);
+  handle = ordinary;
+  await click("Retry");
+  assert.doesNotMatch(container.textContent!, /Reads unavailable/);
+});
+
+test("an older read failure cannot replace a newer successful refresh", async () => {
+  await mount();
+  const pending = deferred<unknown>({});
+  const ordinary = handle;
+  let reads = 0;
+  handle = (request) => request.tool === "list_pipeline" && ++reads === 1 ? pending.promise : ordinary(request);
+  await act(async () => { endChat(); await flush(); });
+  pipelines.get(pacific)!.submissions[0].applicant_name = "Latest applicant";
+  await act(async () => { endChat(); await flush(); });
+  assert.match(container.textContent!, /Latest applicant/);
+  await act(async () => { pending.reject(new Error("Older read failed")); await flush(); });
+  assert.match(container.textContent!, /Latest applicant/);
+  assert.doesNotMatch(container.textContent!, /Older read failed/);
+});
+
+test("changing desks clears read errors and late errors remain scoped", async () => {
+  const pending = deferred<unknown>({});
+  const ordinary = handle;
+  handle = (request) => request.scope === pacific ? pending.promise : ordinary(request);
+  await mount();
+  await pickDesk(atlantic);
+  await act(async () => { pending.reject(new Error("Pacific read failed")); await flush(); });
+  assert.doesNotMatch(container.textContent!, /Pacific read failed/);
+  await pickDesk(pacific);
+  assert.match(container.textContent!, /Pacific read failed/);
+  await pickDesk(atlantic);
+  assert.doesNotMatch(container.textContent!, /Pacific read failed/);
+});
+
+for (const { step, app } of stepApps) {
+  for (const store of ["submissions", "risk_findings", "documents", "events"]) {
+    test(`${step}: failed ${store} reads report an error and recover with Retry`, async () => {
+      const ordinary = readStore;
+      readStore = async (name) => {
+        if (name === store) throw new Error("Reads unavailable");
+        return ordinary(name);
+      };
+      await mount("underwriter", app);
+      assert.match(container.textContent!, /Reads unavailable/);
+      assert.doesNotMatch(container.textContent!, /No submissions on this desk|dataset loads itself/);
+      readStore = ordinary;
+      await click("Retry");
+      assert.match(container.textContent!, /Shared applicant/);
+      assert.doesNotMatch(container.textContent!, /Reads unavailable/);
+      assert.equal(requests.filter((r) => r.tool.startsWith("read:")).length, 8);
+    });
+  }
+
+  test(`${step}: a failed document read cannot expose an empty resubmission packet`, async () => {
+    const ordinary = readStore;
+    readStore = async (name) => {
+      if (name === "documents") throw new Error("Reads unavailable");
+      return ordinary(name);
+    };
+    await mount("broker", app, "#/submission/shared");
+    assert.equal(buttons("Resubmit").length, 0);
+    assert.doesNotMatch(container.textContent!, /That submission is not on this desk/);
+    assert.match(container.textContent!, /Reads unavailable/);
+  });
+
+  for (const waiting of [false, true]) {
+    test(`${step}: automatic analysis waits for all reads to ${waiting ? "finish" : "succeed"}`, async () => {
+      pipelines.get(pacific)!.submissions[0].analyzed_at = "";
+      const pending = deferred<unknown[]>([]);
+      const ordinary = readStore;
+      readStore = async (name) => {
+        if (name === "documents") {
+          if (waiting) return pending.promise;
+          throw new Error("Reads unavailable");
+        }
+        return ordinary(name);
+      };
+      let analyses = 0;
+      analyze = async () => {
+        analyses++;
+        pipelines.get(pacific)!.submissions[0].analyzed_at = "2026-09-07";
+      };
+      await mount("underwriter", app);
+      assert.equal(analyses, 0);
+      readStore = ordinary;
+      if (waiting) await act(async () => { pending.resolve([]); await flush(); });
+      else await click("Retry");
+      assert.equal(analyses, 1);
+    });
+  }
+
+  test(`${step}: incomplete store reads cannot seed an apparently empty pipeline`, async () => {
+    pipelines.get(pacific)!.submissions = [];
+    const ordinary = readStore;
+    readStore = async (name) => {
+      if (name === "events") throw new Error("Reads unavailable");
+      return ordinary(name);
+    };
+    await mount("underwriter", app);
+    assert.equal(requests.filter((r) => r.tool === "seed_examples").length, 0);
+    readStore = ordinary;
+    await click("Retry");
+    assert.equal(requests.filter((r) => r.tool === "seed_examples").length, 1);
+  });
+
+  test(`${step}: a failed refresh retains the complete cached pipeline`, async () => {
+    await mount("underwriter", app);
+    const ordinary = readStore;
+    readStore = async () => { throw new Error("Reads unavailable"); };
+    await act(async () => { endChat(); await flush(); });
+    assert.match(container.textContent!, /Shared applicant/);
+    assert.match(container.textContent!, /Reads unavailable/);
+    assert.doesNotMatch(container.textContent!, /No submissions on this desk|dataset loads itself/);
+    readStore = ordinary;
+    await click("Retry");
+    assert.doesNotMatch(container.textContent!, /Reads unavailable/);
   });
 }

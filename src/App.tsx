@@ -59,6 +59,7 @@ export default function App() {
   const [hash, setHash] = useState(() => window.location.hash);
   const [desk, setDesk] = useState(initialDesk);
   const scopeRef = useRef({ desk });
+  const readRequest = useRef(0);
 
   // Every lane carries the desk's scope: the store rows these runs touch
   // live in that desk's partition, invisible to the other desk.
@@ -73,6 +74,7 @@ export default function App() {
   const seededDesks = useRef(new Set<string>());
   const triagedDesks = useRef(new Set<string>());
   const [pipeline, setPipeline] = useState<Pipeline>(EMPTY_PIPELINE);
+  const [pipelineError, setPipelineError] = useState<string>();
   const [seedError, setSeedError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [confirmReset, setConfirmReset] = useState(false);
@@ -105,12 +107,20 @@ export default function App() {
   async function refetch() {
     const scope = scopeRef.current;
     if (scope.desk !== desk) return;
-    const data = await runTool<Record<string, never>, Pipeline>(pipelineQ, {});
-    if (!data || scopeRef.current !== scope) return;
-    setPipeline({ ...EMPTY_PIPELINE, ...data });
-    if (data.submissions.length === 0 && !seededDesks.current.has(desk)) {
-      seededDesks.current.add(desk);
-      await runSeed();
+    const request = ++readRequest.current;
+    try {
+      const data = await runTool<Record<string, never>, Pipeline>(pipelineQ, {});
+      if (!data || scopeRef.current !== scope || readRequest.current !== request) return;
+      setPipelineError(undefined);
+      setPipeline({ ...EMPTY_PIPELINE, ...data });
+      if (data.submissions.length === 0 && !seededDesks.current.has(desk)) {
+        seededDesks.current.add(desk);
+        await runSeed();
+      }
+    } catch (err) {
+      if (scopeRef.current === scope && readRequest.current === request) {
+        setPipelineError(errorMessage(err, "Loading the pipeline failed."));
+      }
     }
   }
 
@@ -127,7 +137,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    refetch().catch(() => {});
+    void refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desk]);
 
@@ -143,19 +153,20 @@ export default function App() {
   // all button fills. Guarded per desk per page load so a refetch does not
   // re-fire it.
   useEffect(() => {
-    if (pipelineQ.status === "running" || seed.status === "running") return;
+    if (pipelineError || pipelineQ.status !== "succeeded" || seed.status === "running") return;
     if (pipeline.submissions.length === 0 || triagedDesks.current.has(desk)) return;
     triagedDesks.current.add(desk);
     for (const s of pipeline.submissions) {
       if (!s.analyzed_at) actions.analyze(s.submission_id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [desk, pipeline.submissions, pipelineQ.status, seed.status]);
+  }, [desk, pipeline.submissions, pipelineQ.status, seed.status, pipelineError]);
 
   function onPickDesk(id: string) {
     if (id === desk) return;
     scopeRef.current = { desk: id };
     setPipeline(EMPTY_PIPELINE);
+    setPipelineError(undefined);
     actions.closeDecide();
     setReplyTarget(null);
     setConfirmReset(false);
@@ -261,6 +272,13 @@ export default function App() {
     ? all.find((s) => s.submission_id === actions.deciding)
     : undefined;
 
+  const unavailable = pipelineError && (
+    (route.name === "pipeline" && all.length === 0) ||
+    (route.name === "mine" && mine.length === 0) ||
+    (route.name === "history" && pipeline.events.length === 0) ||
+    (route.name === "submission" && !all.some((s) => s.submission_id === route.submission_id))
+  );
+
   return (
     <div className="shell">
       <Sidebar
@@ -295,6 +313,14 @@ export default function App() {
       </Sidebar>
 
       <main className="main">
+        {pipelineError ? (
+          <div className="banner error" role="alert">
+            {pipelineError}{" "}
+            <button className="btn btn--ghost" disabled={pipelineQ.status === "running"} onClick={() => void refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
         {syncError ? <div className="banner error">{syncError}</div> : null}
         {seedError ? (
           <div className="banner error">
@@ -305,7 +331,7 @@ export default function App() {
           </div>
         ) : null}
 
-        {route.name === "pipeline" ? (
+        {unavailable ? null : route.name === "pipeline" ? (
           <PipelineScreen
             submissions={all}
             findingBySub={findingBySub}

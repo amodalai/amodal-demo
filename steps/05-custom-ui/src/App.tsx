@@ -6,11 +6,13 @@ import { BROKER, usePersona } from "./persona";
 import { hashOf, resolveRoute, type Role, type Route } from "./routes";
 import { errorMessage, runTool } from "./tools";
 import {
+  EMPTY_PIPELINE,
   byId,
   forSubmission,
   type DocumentRow,
   type EventRow,
   type FindingRow,
+  type Pipeline,
   type SubmissionRow,
 } from "./types";
 import { DecideModal } from "./components/DecideModal";
@@ -42,6 +44,7 @@ export default function App() {
   const decide = useToolRun("decide_submission");
   const submit = useToolRun("submit_submission");
 
+  const cachedPipeline = useRef<Pipeline>(EMPTY_PIPELINE);
   const seededRef = useRef(false);
   const triagedRef = useRef(false);
   const [seedError, setSeedError] = useState<string | null>(null);
@@ -63,13 +66,25 @@ export default function App() {
     window.location.hash = hashOf(next);
   };
 
-  const all = (subsQ.data ?? [])
-    .map((r) => r.value)
-    .sort((a, b) => a.applicant_name.localeCompare(b.applicant_name));
+  const queries = [subsQ, findingsQ, docsQ, eventsQ];
+  const reading = queries.some((q) => q.isLoading);
+  const pipelineError = queries.find((q) => q.error)?.error;
+  const complete = !reading && !pipelineError && queries.every((q) => q.data !== undefined);
+  const pipeline: Pipeline = complete ? {
+    submissions: subsQ.data!.map((r) => r.value),
+    findings: findingsQ.data!.map((r) => r.value),
+    documents: docsQ.data!.map((r) => r.value),
+    events: eventsQ.data!.map((r) => r.value),
+  } : cachedPipeline.current;
+  useEffect(() => {
+    if (complete) cachedPipeline.current = pipeline;
+  }, [complete, pipeline]);
+
+  const all = [...pipeline.submissions].sort((a, b) => a.applicant_name.localeCompare(b.applicant_name));
   const mine = all.filter((s) => s.requested_by === BROKER.email);
-  const findingBySub = byId((findingsQ.data ?? []).map((r) => r.value));
-  const documents = (docsQ.data ?? []).map((r) => r.value);
-  const events = (eventsQ.data ?? []).map((r) => r.value);
+  const findingBySub = byId(pipeline.findings);
+  const documents = pipeline.documents;
+  const events = pipeline.events;
 
   const refetch = () =>
     Promise.all([subsQ.refetch(), findingsQ.refetch(), docsQ.refetch(), eventsQ.refetch()]);
@@ -86,7 +101,7 @@ export default function App() {
 
   // The runtime has no startup hook, so an empty store loads the demo
   // dataset on first mount, once per page load.
-  const empty = !subsQ.isLoading && !subsQ.error && all.length === 0;
+  const empty = complete && all.length === 0;
   useEffect(() => {
     if (!empty || seededRef.current) return;
     seededRef.current = true;
@@ -104,12 +119,12 @@ export default function App() {
   // un-analyzed submission goes into the same serial queue the Analyze all
   // button fills. Guarded per page load so a refetch does not re-fire it.
   useEffect(() => {
-    if (subsQ.isLoading || seed.status === "running") return;
+    if (!complete || seed.status === "running") return;
     if (all.length === 0 || triagedRef.current) return;
     triagedRef.current = true;
     for (const s of all) if (!s.analyzed_at) actions.analyze(s.submission_id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all.length, subsQ.isLoading, seed.status]);
+  }, [pipeline.submissions, complete, seed.status]);
 
   function onPickRole(next: Role) {
     setRole(next);
@@ -152,12 +167,19 @@ export default function App() {
   const loading =
     seed.status === "running"
       ? "Loading the demo…"
-      : subsQ.isLoading
+      : reading
         ? "Loading the pipeline…"
         : null;
   const deciding = actions.deciding
     ? all.find((s) => s.submission_id === actions.deciding)
     : undefined;
+
+  const unavailable = pipelineError && (
+    (route.name === "pipeline" && all.length === 0) ||
+    (route.name === "mine" && mine.length === 0) ||
+    (route.name === "history" && events.length === 0) ||
+    (route.name === "submission" && !all.some((s) => s.submission_id === route.submission_id))
+  );
 
   return (
     <div className="shell">
@@ -170,6 +192,14 @@ export default function App() {
       />
 
       <main className="main">
+        {pipelineError ? (
+          <div className="banner error" role="alert">
+            {errorMessage(pipelineError, "Loading the pipeline failed.")}{" "}
+            <button className="btn btn--ghost" disabled={reading} onClick={() => void refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
         {seedError ? (
           <div className="banner error">
             {seedError}{" "}
@@ -179,7 +209,7 @@ export default function App() {
           </div>
         ) : null}
 
-        {route.name === "pipeline" ? (
+        {unavailable ? null : route.name === "pipeline" ? (
           <PipelineScreen
             submissions={all}
             findingBySub={findingBySub}
