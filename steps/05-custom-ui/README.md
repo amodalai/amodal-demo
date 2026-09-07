@@ -10,6 +10,9 @@ Each submission is scored against a fictional carrier's underwriting guide, and 
 agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
 `request-info`, `refer`, or `decline`) and saves it.
 
+Re-analysis refreshes the recommendation while preserving the underwriter's
+decision and workflow status. A broker resubmission starts another review.
+
 This is **step 5** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
 

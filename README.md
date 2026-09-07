@@ -17,6 +17,9 @@ underwriting desks share one deployment, with separate submissions, agent
 memory, and sessions through `scope_id`. Gmail can bring broker submissions
 in and send reviewed outcomes back with the operator's confirmation.
 
+Re-analysis refreshes the recommendation while preserving the underwriter's
+decision and workflow status. A broker resubmission starts another review.
+
 This is **step 12** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
 

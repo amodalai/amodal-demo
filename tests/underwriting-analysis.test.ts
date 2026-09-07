@@ -243,3 +243,28 @@ for (const dir of [".", ...stepsFrom("03-code-vs-llm")]) {
     }
   });
 }
+
+for (const base of [".", ...stepsFrom("05-custom-ui")]) {
+  test(`${base}: reanalysis preserves the lane and record of a human decision`, async () => {
+    const { runUnderwritingAnalysis: analyze } = await import(`../${base}/amodal/_lib/underwriting-analysis.js`);
+    for (const decision of ["quote", "request-info", "refer", "decline"]) {
+      const submission = {
+        ...SUB,
+        status: decision === "request-info" ? "info-requested" : "closed",
+        decision,
+        decision_note: "Reviewed by the underwriter.",
+        decided_at: "2026-09-01T08:00:00.000Z",
+        decided_by: "Casey",
+      };
+      const { deps, writes } = fakeDesk({ submission });
+      await analyze("sub_a", deps);
+      const saved = writes()[1][1].value as typeof submission & { recommendation: string };
+      assert.equal(saved.status, submission.status, decision);
+      assert.equal(saved.decision, decision);
+      assert.equal(saved.decision_note, submission.decision_note);
+      assert.equal(saved.decided_at, submission.decided_at);
+      assert.equal(saved.decided_by, submission.decided_by);
+      assert.equal(saved.recommendation, REVIEW.recommendation);
+    }
+  });
+}

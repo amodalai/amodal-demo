@@ -280,7 +280,7 @@ export async function runUnderwritingAnalysis(
   const nowIso = deps.now().toISOString();
   const finding_id = findingKey(submission_id);
   const updatedSub = updatedSubmission(sub, {
-    status: "in-review",
+    status: sub.decision ? sub.status : "in-review",
     recommendation,
     risk_score: riskScore,
     analyzed_at: nowIso,

@@ -14,6 +14,9 @@ agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
 `request-info`, `refer`, or `decline`), saves it, and, on the operator's
 confirmation, emails it back to the broker.
 
+Re-analysis refreshes the recommendation while preserving the underwriter's
+decision and workflow status. A broker resubmission starts another review.
+
 This is **step 8** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
 
