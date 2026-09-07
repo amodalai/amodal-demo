@@ -426,6 +426,8 @@ npm test           # unit tests for the tools, the rules, and the eight UI snaps
 - `evals/*.md`: the eval suite, grown step by step; `whatif-inspection-received.md`
   pins the dispatch path. Re-run it after any edit here.
 - `amodal.json` `memory`: enabled, `editableBy: "any"`, `maxEntries: 50`.
+  The default agent grants the `memory` tool in `agents/default/agent.ts`.
+  `evals/memory-guidance.md` checks saving and removing standing guidance.
   Memory holds the desk's standing guidance; triage state stays in the stores,
   so each triage remains a pure function of what is in them.
 - `agents/default/agent.ts`: the conditional surface. Edit the predicates to

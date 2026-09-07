@@ -15,6 +15,7 @@ export default {
   tools: [
     "analyze_submission",
     "claims_stats",
+    "memory",
     // The `seed` chat shortcut is the operator's. A headless run must never
     // fake data over a real mailbox sync: if the inbox is empty, an
     // unattended session files nothing. (The UI's first-open seed runs the
