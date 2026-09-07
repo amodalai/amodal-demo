@@ -6,9 +6,8 @@ can never be `ready-to-quote`) is enforced in code, and this eval pins it down:
 whatever the reviewer subagent's judgment, the recommendation must ask for the
 document, not clear the file.
 
-## Setup
-
-Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
+The analysis tool seeds demo data when stores are empty. This case can run
+independently or as part of the suite.
 
 ## Query
 
@@ -16,6 +15,7 @@ Context: Self-seeding: on fresh stores the analyze_submission tool loads the dem
 
 ## Assertions
 
+- tool_called_with: analyze_submission {"submission_id":"sub_bistro_ember"}
 - Should recommend request-info or refer
 - Should NOT recommend ready-to-quote
 - Should list the kitchen fire-safety inspection as missing

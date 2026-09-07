@@ -61,8 +61,11 @@ regression suite.
 
 What an eval is. A Markdown file in [`evals/`](evals/). There is no
 manifest wiring: the runtime discovers `evals/*.md` on its own. Each file has a `# Eval:` title,
-an optional `## Setup` context note, a `## Query` (the user message to send),
-and `## Assertions` about the response.
+a `## Query` (the user message to send) and `## Assertions` about the response.
+An optional `## Setup` `Context:` line becomes part of the message sent to the
+agent. Keep execution notes in the introduction so exact `seed` and `analyze`
+commands match their regex triggers. Each command eval also asserts that its
+tool ran with the expected arguments.
 
 Evals run the production path. The query is sent through the same chat
 pipeline as a real message, so `analyze sub_summit_yoga` fires the real

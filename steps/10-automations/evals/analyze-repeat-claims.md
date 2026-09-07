@@ -9,9 +9,8 @@ be right, and the repeat must be called out. If it fails after a reviewer or
 tool edit, either the reviewer stopped calling the tool or it stopped judging
 the descriptions.
 
-## Setup
-
-Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
+The analysis tool seeds demo data when stores are empty. This case can run
+independently or as part of the suite.
 
 ## Query
 
@@ -19,6 +18,7 @@ Context: Self-seeding: on fresh stores the analyze_submission tool loads the dem
 
 ## Assertions
 
+- tool_called_with: analyze_submission {"submission_id":"sub_bistro_ember"}
 - Should treat the claims history as a concern: two kitchen fires, a repeat of the same cause
 - Should reflect that the larger claim exceeds $100k
 - Should recommend request-info or refer

@@ -10,9 +10,8 @@ the claims rules; `analyze-repeat-claims` covers the judgment half. If this
 eval fails, the reviewer subagent has stopped calling the tool and is dating
 the claims from its own sense of today.
 
-## Setup
-
-Context: Self-seeding: on fresh stores the analyze_submission tool loads the demo data itself, so this eval passes alone and in any order.
+The analysis tool seeds demo data when stores are empty. This case can run
+independently or as part of the suite.
 
 ## Query
 
@@ -20,6 +19,7 @@ Context: Self-seeding: on fresh stores the analyze_submission tool loads the dem
 
 ## Assertions
 
+- tool_called_with: analyze_submission {"submission_id":"sub_cascade_printworks"}
 - Should state that exactly 1 of the 3 claims falls in the last-3-years window, with the current real year as the as-of year
 - Should NOT treat the history as frequent claims (3+ in the last 3 years)
 - Should recommend ready-to-quote
