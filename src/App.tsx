@@ -115,12 +115,14 @@ export default function App() {
   }
 
   async function runSeed() {
+    const scope = scopeRef.current;
     setSeedError(null);
     try {
       await runTool(seed, {});
-      await refetch();
+      if (scopeRef.current === scope) await refetch();
     } catch (err) {
-      setSeedError(errorMessage(err, "Loading the demo failed."));
+      seededDesks.current.delete(desk);
+      if (scopeRef.current === scope) setSeedError(errorMessage(err, "Loading the demo failed."));
     }
   }
 
@@ -154,7 +156,11 @@ export default function App() {
     if (id === desk) return;
     scopeRef.current = { desk: id };
     setPipeline(EMPTY_PIPELINE);
+    actions.closeDecide();
     setReplyTarget(null);
+    setConfirmReset(false);
+    setSubmitError(undefined);
+    setResetError(undefined);
     for (const lane of [pipelineQ, sync, sendReply, seed, reset, decide, submit]) lane.reset();
     setSeedError(null);
     setSyncError(undefined);
@@ -172,6 +178,7 @@ export default function App() {
   }
 
   async function onSubmit(draft: SubmissionDraft, submission_id?: string) {
+    const scope = scopeRef.current;
     setSubmitError(undefined);
     try {
       const out = await runTool<Record<string, unknown>, { submission_id: string }>(submit, {
@@ -185,46 +192,52 @@ export default function App() {
         requested_by: BROKER.email,
         documents: draft.documents.filter((d) => d.name.trim()),
       });
+      if (scopeRef.current !== scope) return;
       await refetch();
-      if (out?.submission_id) go({ name: "submission", submission_id: out.submission_id });
+      if (scopeRef.current === scope && out?.submission_id) go({ name: "submission", submission_id: out.submission_id });
     } catch (err) {
-      setSubmitError(errorMessage(err, "Filing the submission failed."));
+      if (scopeRef.current === scope) setSubmitError(errorMessage(err, "Filing the submission failed."));
     }
   }
 
   async function onSync() {
+    const scope = scopeRef.current;
     setSyncError(undefined);
     try {
       await runTool(sync, {});
-      await refetch();
+      if (scopeRef.current === scope) await refetch();
     } catch (err) {
-      setSyncError(errorMessage(err, "Sync failed."));
+      if (scopeRef.current === scope) setSyncError(errorMessage(err, "Sync failed."));
     }
   }
 
   async function onConfirmSend() {
     if (!replyTarget || replyTarget.desk !== desk) return;
+    const scope = scopeRef.current;
     setSendError(undefined);
     try {
       await runTool(sendReply, { submission_id: replyTarget.s.submission_id });
+      if (scopeRef.current !== scope) return;
       await refetch();
-      setReplyTarget(null);
+      if (scopeRef.current === scope) setReplyTarget(null);
     } catch (err) {
-      setSendError(errorMessage(err, "Sending the reply failed."));
+      if (scopeRef.current === scope) setSendError(errorMessage(err, "Sending the reply failed."));
     }
   }
 
   // The reset seeds the desk itself, so refetch must not seed it again.
   async function onReset() {
+    const scope = scopeRef.current;
     setResetError(undefined);
     try {
       await runTool(reset, {});
       seededDesks.current.add(desk);
       triagedDesks.current.delete(desk);
+      if (scopeRef.current !== scope) return;
       await refetch();
-      setConfirmReset(false);
+      if (scopeRef.current === scope) setConfirmReset(false);
     } catch (err) {
-      setResetError(errorMessage(err, "The reset failed."));
+      if (scopeRef.current === scope) setResetError(errorMessage(err, "The reset failed."));
     }
   }
 

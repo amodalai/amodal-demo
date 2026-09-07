@@ -104,6 +104,10 @@ everything else. Tell the Pacific desk "we're not writing vacant buildings"
 and the Atlantic desk never hears it: same agent, different institutional
 memory.
 
+Pending actions retain their desk. Switching desks closes confirmations.
+Analysis progress and errors appear only on their own desk. A delayed
+completion cannot navigate or dismiss controls in a different desk.
+
 Desks and personas are different axes. The desk is a runtime partition: it
 decides which rows exist and is enforced by the platform. The persona from
 step 5 is a screen role: it decides how those rows are shown and is enforced

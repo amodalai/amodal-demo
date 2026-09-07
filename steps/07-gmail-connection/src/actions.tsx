@@ -35,9 +35,11 @@ export function useSubmissionActions(opts: {
   const [analyzing, setAnalyzing] = useState<ReadonlySet<string>>(new Set());
   const [activeAnalysis, setActiveAnalysis] = useState<string | undefined>();
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
-  const [deciding, setDeciding] = useState<string | undefined>();
+  const [deciding, setDeciding] = useState<{ id: string } | undefined>();
   const queue = useMemo(serial, []);
   const pending = useRef(new Set<string>());
+  const prefix = `${JSON.stringify(scopeId ?? null)}:`;
+  const localId = (id?: string) => id?.startsWith(prefix) ? id.slice(prefix.length) : undefined;
 
   const setError = (id: string, message?: string) =>
     setErrors((prev) => {
@@ -56,44 +58,50 @@ export function useSubmissionActions(opts: {
     });
 
   function analyze(submission_id: string) {
-    if (pending.current.has(submission_id)) return;
-    pending.current.add(submission_id);
-    mark(submission_id, true);
-    setError(submission_id);
+    const id = prefix + submission_id;
+    if (pending.current.has(id)) return;
+    pending.current.add(id);
+    mark(id, true);
+    setError(id);
     void queue(async () => {
-      setActiveAnalysis(submission_id);
+      setActiveAnalysis(id);
       try {
         await runAnalyzeCommand(client, submission_id, scopeId);
         await refetch();
       } catch (err) {
-        setError(submission_id, errorMessage(err, "Analysis failed."));
+        setError(id, errorMessage(err, "Analysis failed."));
       } finally {
         setActiveAnalysis(undefined);
-        pending.current.delete(submission_id);
-        mark(submission_id, false);
+        pending.current.delete(id);
+        mark(id, false);
       }
     });
   }
 
   async function decide(submission_id: string, decision: Decision, note: string) {
-    setError(submission_id);
+    const id = prefix + submission_id;
+    setError(id);
     try {
       await opts.submitDecision({ submission_id, decision, note });
       await refetch();
-      setDeciding(undefined);
+      setDeciding((current) => current === deciding ? undefined : current);
     } catch (err) {
-      setError(submission_id, errorMessage(err, "The decision was not recorded."));
+      setError(id, errorMessage(err, "The decision was not recorded."));
       throw err;
     }
   }
 
   return {
-    analyzing,
-    activeAnalysis,
-    errors,
-    deciding,
+    analyzing: new Set(Array.from(analyzing)
+      .filter((id) => id.startsWith(prefix))
+      .map((id) => id.slice(prefix.length))),
+    activeAnalysis: localId(activeAnalysis),
+    errors: new Map(Array.from(errors)
+      .filter(([id]) => id.startsWith(prefix))
+      .map(([id, error]) => [id.slice(prefix.length), error])),
+    deciding: localId(deciding?.id),
     analyze,
-    openDecide: setDeciding,
+    openDecide: (id) => setDeciding({ id: prefix + id }),
     closeDecide: () => setDeciding(undefined),
     decide,
   };
