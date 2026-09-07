@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { previewReply, previewSubject } from "../../src/reply.js";
 import type { FindingRow, SubmissionRow } from "../../src/types.js";
 import send_outcome from "../tools/send_outcome/handler.js";
+import { buildReply } from "./reply.js";
 
 const SUB: SubmissionRow = {
   submission_id: "sub_a",
@@ -23,7 +24,12 @@ const FINDING: FindingRow = {
 
 async function send(sub: SubmissionRow, finding: FindingRow, message?: string) {
   const calls: Array<[string, Record<string, unknown>]> = [];
-  const result = await send_outcome({ submission_id: sub.submission_id, message }, {
+  const { subject, body } = buildReply(sub, finding, message);
+  const params = {
+    submission_id: sub.submission_id, message,
+    confirmation: { to: sub.broker_email?.trim() ?? "", subject, body },
+  };
+  const result = await send_outcome(params, {
     log: () => {},
     signal: new AbortController().signal,
     now: () => Date.parse("2026-09-07T10:00:00.000Z"),

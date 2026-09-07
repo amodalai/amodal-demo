@@ -25,13 +25,13 @@ export function ReplyModal({
       error={error}
       confirmLabel="Confirm & send"
       busyLabel="Sending…"
-      confirmDisabled={!s.broker_email}
+      confirmDisabled={!s.broker_email?.trim()}
       onConfirm={onConfirm}
       onCancel={onCancel}
     >
       <dl className="modal__fields">
         <dt>To</dt>
-        <dd>{s.broker_email ?? "—"}</dd>
+        <dd>{s.broker_email?.trim() || "—"}</dd>
         <dt>Subject</dt>
         <dd>{previewSubject(s)}</dd>
       </dl>

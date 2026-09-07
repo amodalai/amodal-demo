@@ -12,8 +12,8 @@ import { findingKey, storeGetResult } from "../../_lib/underwriting-analysis.js"
  * POST /api/tools/send_outcome/run; the `invoke` trigger in tool.json is the
  * opt-in) loads the submission + its saved risk finding, composes a broker
  * reply from the human decision or, before a decision, the recommendation.
- * It delivers the email through `send_message` and records the outbound state
- * on the submission.
+ * It compares the recipient, subject, and final body with the confirmed
+ * preview before calling `send_message` and recording the outbound state.
  *
  * Sending mail to a real broker is irreversible, so unlike `sync_submissions`
  * (the read-only surface) this NEVER runs automatically: it is not in any
@@ -32,6 +32,7 @@ export interface SendOutcomeParams {
   submission_id?: string;
   /** Optional operator note prepended to the reply body. */
   message?: string;
+  confirmation?: { to: string; subject: string; body: string };
 }
 
 interface SubmissionRow {
@@ -69,6 +70,18 @@ export default async function send_outcome(
   if (!submission_id) {
     throw new Error("No submission_id provided.");
   }
+  const confirmation = params.confirmation;
+  if (
+    !confirmation ||
+    typeof confirmation.to !== "string" || !confirmation.to.trim() ||
+    typeof confirmation.subject !== "string" || !confirmation.subject.trim() ||
+    typeof confirmation.body !== "string" || !confirmation.body.trim()
+  ) {
+    throw new Error(
+      "Review and confirm the recipient, subject, and message before sending. " +
+        "Close this dialog, refresh the page, and reopen Send reply.",
+    );
+  }
   if (!ctx.callTool) {
     throw new Error(
       "send_outcome needs the composite context (ctx.callTool). " +
@@ -100,6 +113,12 @@ export default async function send_outcome(
   }
 
   const { subject, body, outcome, decision } = buildReply(sub, finding, message);
+  if (confirmation.to !== to || confirmation.subject !== subject || confirmation.body !== body) {
+    throw new Error(
+      "The reply changed since you reviewed it. " +
+        "Close this dialog, refresh the page, and reopen Send reply to review the current message.",
+    );
+  }
 
   const result = await ctx.callTool<SendMessageResult>("send_message", {
     to: [to],

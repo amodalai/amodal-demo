@@ -464,3 +464,45 @@ for (const { step, app } of stepApps) {
     assert.doesNotMatch(container.textContent!, /Reads unavailable/);
   });
 }
+
+test("Send reply submits the exact recipient, subject, and body displayed for confirmation", async () => {
+  pipelines.get(pacific)!.submissions[0].broker_email = ` ${submission.broker_email} `;
+  await mount();
+  await click("Send reply");
+  const fields = container.querySelectorAll(".modal__fields dd");
+  const reviewed = {
+    to: fields[0].textContent, subject: fields[1].textContent,
+    body: container.querySelector(".modal__body")!.textContent,
+  };
+  assert.equal(reviewed.to, submission.broker_email);
+  await click("Confirm & send");
+  assert.deepEqual(requests.find(({ tool }) => tool === "send_outcome")?.input, {
+    submission_id: submission.submission_id, confirmation: reviewed,
+  });
+});
+
+test("a reply changed in another tab is rejected and leaves the confirmation open with recovery guidance", async () => {
+  const send = load(new URL("../amodal/tools/send_outcome/handler.ts", import.meta.url).pathname).default;
+  const sent: unknown[] = [];
+  const ordinary = handle;
+  handle = async (request) => {
+    if (request.tool !== "send_outcome") return ordinary(request);
+    const pipeline = pipelines.get(request.scope)!;
+    return send(request.input, {
+      log: () => {}, signal: new AbortController().signal,
+      async callTool(name: string, args: Record<string, unknown>) {
+        if (name === "store__submissions__get") return pipeline.submissions[0];
+        if (name === "store__risk_findings__get") return pipeline.findings[0];
+        if (name === "send_message") sent.push(args);
+        return {};
+      },
+    });
+  };
+  await mount();
+  await click("Send reply");
+  pipelines.get(pacific)!.submissions[0] = { ...submission, broker_email: "changed@example.invalid", decision: "decline" };
+  await click("Confirm & send");
+  assert.deepEqual(sent, []);
+  assert.ok(container.querySelector("[role=dialog]"));
+  assert.match(container.textContent!, /reply changed.*refresh.*reopen Send reply/);
+});

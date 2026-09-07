@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import decide_submission from "../amodal/tools/decide_submission/handler.js";
 import send_outcome from "../amodal/tools/send_outcome/handler.js";
+import { buildReply } from "../amodal/_lib/reply.js";
 import { updatedSubmission } from "../amodal/_lib/demo-data.js";
 import sync_submissions from "../amodal/tools/sync_submissions/handler.js";
 import submissions from "../amodal/stores/submissions.json";
@@ -78,7 +79,10 @@ test("replying to a legacy row rewrites every column the row predates", async ()
     ...LEGACY_ROW,
     broker_email: "ada@broker.example",
   });
-  await send_outcome({ submission_id: "sub_a" }, ctx);
+  const { subject, body } = buildReply(LEGACY_ROW, { recommendation: "refer" });
+  await send_outcome({
+    submission_id: "sub_a", confirmation: { to: "ada@broker.example", subject, body },
+  }, ctx);
   const value = submissionWrite() as Record<string, unknown>;
   assertComplete(value);
   assert.equal(value.reply_status, "sent");

@@ -229,6 +229,13 @@ The handler checks the saved finding and broker address before it sends. The
 `outbound-reply-guard` separately checks model-selected `send_message` calls;
 it does not intercept the handler's nested send.
 
+The UI submits the confirmed recipient, subject, and body with the send request.
+The handler rebuilds the email from current rows and rejects any mismatch
+before calling Gmail. If another tab changed the reply, close the dialog,
+refresh the page, and reopen **Send reply** to review it again. Direct callers
+must provide `confirmation: { to, subject, body }`; an optional `message` note
+must be included in the confirmed final body.
+
 How do submissions arrive? The first time the screen opens on an empty
 store, the UI runs `seed_examples` over the invoke lane and the five demo
 submissions land in the stores. Real mail comes through **Sync inbox**

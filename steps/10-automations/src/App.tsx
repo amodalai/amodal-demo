@@ -5,6 +5,7 @@ import { useSubmissionActions } from "./actions";
 import { BROKER, usePersona } from "./persona";
 import { hashOf, resolveRoute, type Role, type Route } from "./routes";
 import { errorMessage, runTool } from "./tools";
+import { previewReply, previewSubject } from "./reply";
 import {
   EMPTY_PIPELINE,
   byId,
@@ -177,7 +178,14 @@ export default function App() {
     if (!replyTarget) return;
     setSendError(undefined);
     try {
-      await runTool(sendReply, { submission_id: replyTarget.s.submission_id });
+      await runTool(sendReply, {
+        submission_id: replyTarget.s.submission_id,
+        confirmation: {
+          to: replyTarget.s.broker_email?.trim() ?? "",
+          subject: previewSubject(replyTarget.s),
+          body: previewReply(replyTarget.s, replyTarget.finding),
+        },
+      });
       await refetch();
       setReplyTarget(null);
     } catch (err) {

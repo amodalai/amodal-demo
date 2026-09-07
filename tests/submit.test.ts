@@ -211,7 +211,10 @@ for (const dir of [".", ...stepsFrom("05-custom-ui")]) {
     assert.ok(!desk.calls.some(([name]) => /store__claims__(set|remove)/.test(name)));
     assertDeclared("submit_submission", desk.calls.map(([name]) => name));
 
-    await assert.rejects(send_outcome({ submission_id: "sub_a" }, {
+    await assert.rejects(send_outcome({
+      submission_id: "sub_a",
+      confirmation: { to: "broker@example.invalid", subject: "Reviewed reply", body: "Confirmed reply" },
+    }, {
       log: () => {},
       signal: new AbortController().signal,
       callTool: desk.deps.callTool as never,
