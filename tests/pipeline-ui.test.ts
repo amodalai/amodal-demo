@@ -105,6 +105,19 @@ test("the applicant page keeps the full risk assessment and supporting details",
     assert.ok(html.includes(text), text);
 });
 
+test("the weather panel is separate from the finding and appears only for the underwriter", () => {
+  const ui = mount();
+  for (const role of ["underwriter", "broker"]) {
+    const html = renderToStaticMarkup(createElement(SubmissionDetail, {
+      role, s: submissions[0], finding, documents: [], events: [],
+      actions: ui.actions(), submitting: false, onResubmit() {},
+      weather: createElement("section", null, "Regional weather report"),
+    }));
+    assert.equal(html.includes("Regional weather report"), role === "underwriter");
+    if (role === "underwriter") assert.ok(html.includes(finding.summary));
+  }
+});
+
 for (const fail of [false, true]) {
   test(`pipeline distinguishes queued and active analyses through ${fail ? "failure" : "success"}`, async () => {
     const ui = mount();

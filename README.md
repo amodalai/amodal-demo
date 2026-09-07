@@ -50,7 +50,7 @@ this step.
 | [`steps/04`](steps/04-evals/)                           | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                |
 | [`steps/05`](steps/05-custom-ui/)                       | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                       |
 | [`steps/06`](steps/06-guardrail-hooks/)                 | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                |
-| [`steps/07`](steps/07-gmail-connection/)                | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                 |
+| [`steps/07`](steps/07-gmail-connection/)                | External connections: Gmail policies and a public weather API through native OpenAPI discovery                 |
 | [`steps/08`](steps/08-custom-tool/)                     | Writing a custom tool when a Markdown skill and a schema aren't enough                                         |
 | [`steps/09`](steps/09-model-delegation/)                | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`                   |
 | [`steps/10`](steps/10-automations/)                     | Background automations: scheduled runs that need no UI open, and what a confirm gate means with no human present |
@@ -76,8 +76,8 @@ partition, which is what steps 1-11 (and the eval suite) were using all
 along.
 
 Who says which scope. The UI's desk picker sends the selected desk as
-`scopeId` on every lane: the chat (`ChatWidget scopeId`, and the Analyze
-button's `chatStream`), the invoke-lane tools (`useToolRun('...', { scopeId })`),
+`scopeId` on every lane: the chat (`ChatWidget scopeId`, the Analyze
+button's `chatStream`, and the weather panel's `chatStream`), the invoke-lane tools (`useToolRun('...', { scopeId })`),
 and the automation binding (`useAutomation({ scopeId })`, so each desk owns
 its own auto-sync). This demo runs with identity `none`, so the scope rides
 the request body and the app is trusted for it. In a real embedding your
@@ -111,6 +111,36 @@ What a role may not do is structural instead: `decide_submission` and
 either step on either desk.
 
 See the diff: `diff -r -x steps -x node_modules -x dist steps/11-memory-and-surfaces .`
+
+## Live weather alerts through OpenAPI
+
+Open an applicant as the underwriter and click **Check weather alerts**.
+Northstar Storage is a useful example: its Texas submission gives the
+lookup a state without needing an address or geocoding service. The panel
+reports current alert types, severity, affected areas, and expiry times,
+with a source link and the time of the check. No account or API key is
+required. A state can have no active alerts; an unavailable service is
+shown as a failed check.
+
+The [`weather` agent](agents/weather/AGENT.md) holds only the
+[NWS connection](amodal/connections/weather/README.md). The UI sends a
+chat request to that agent. It discovers the operation from the checked-in
+OpenAPI contract, calls the generated tool, and reads paged results when
+the response is large. The panel accepts a report only after a successful
+native alert call. The agent has no store grants or decision tools.
+The `weather-alerts` eval checks discovery and source-grounded reporting;
+`weather-read-only` checks that this surface refuses decision and email
+requests. The live eval needs an available NWS service.
+
+This teaches a second way to connect: Gmail uses an installed driver;
+weather uses an API contract and the runtime's native discovery. The
+explicit `openapi.source` block in `spec.json` enables it. Placing an
+`openapi.json` file in a connection directory alone does not.
+
+Statewide alerts are context for the operator. They do not establish that
+a particular property is affected, measure long-term exposure, or change
+the saved assessment. The feature requires a Cloud runtime with native
+OpenAPI discovery support and internet access to NWS.
 
 ## How it works
 
@@ -289,8 +319,9 @@ assessment cards, missing information, and conditions.
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
-and the agent chat alongside it. It runs with no credentials: the Gmail
-connection loads non-fatally, so every step works offline:
+and the agent chat alongside it. Gmail credentials are optional: without
+them, inbox sync uses the demo dataset. Weather checks use the public NWS
+service and need internet access:
 
 1. Open the app and pick a desk. The five demo submissions load into that
    desk's partition on first open and the desk triages itself, row by row.

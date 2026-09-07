@@ -12,12 +12,20 @@ duplicated here.
 | `04-evals/`                | Evals as quality gates                                          |
 | `05-custom-ui/`            | Custom UI (`runtimeApp`), roles and routes, and tools no agent holds                      |
 | `06-guardrail-hooks/`      | Guardrail hooks: hard rules at the platform layer               |
-| `07-gmail-connection/`     | External connection, read-only vs. confirm surfaces             |
+| `07-gmail-connection/`     | Gmail policies and native OpenAPI weather discovery             |
 | `08-custom-tool/`          | Writing a custom tool                                           |
 | `09-model-delegation/`     | Model-initiated delegation (`call_subagent`)                    |
 | `10-automations/`          | Background automations, and the confirm gate with no human present |
 | `11-memory-and-surfaces/`  | Memory and conditional surfaces                                 |
 | _(root)_                   | Step 12: embedding & multi-tenancy (`scope_id`)                 |
+
+## Connection lesson
+
+Step 7 introduces both a packaged Gmail driver and a public National
+Weather Service connection. Steps 7 through 12 include the weather agent,
+contract, applicant-page lookup, and tests. Steps 1 through 6 keep the
+capabilities taught at those stages. The weather connection requires a
+Cloud runtime with native OpenAPI discovery support.
 
 ## Using the steps
 

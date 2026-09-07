@@ -1,0 +1,11 @@
+{
+  "baseUrl": "https://api.weather.gov",
+  "headers": {
+    "User-Agent": "amodal-underwriting-demo (https://github.com/amodalai/amodal-demo)",
+    "Accept": "application/geo+json"
+  },
+  "openapi": {
+    "source": "./openapi.json",
+    "exposure": "discovery"
+  }
+}

@@ -1104,3 +1104,8 @@ code {
     flex-wrap: wrap;
   }
 }
+
+.weather__report {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -32,16 +32,20 @@ current step**. Two ways to use it:
 **You are here: `steps/03-code-vs-llm`.** This README describes the app at
 this step.
 
-| Step                           | What you learn                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
-| `steps/02-stores`              | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                                  |
-| `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
-| `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
-| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                           |
-| `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
-| `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
-| repo root (step 8)             | Writing a custom tool the reviewer itself calls, when a prompt and a schema aren't enough                          |
+| Step | What you learn |
+| --- | --- |
+| [01: skills-and-knowledge](../01-skills-and-knowledge/) | Skills, knowledge, and the runtime loop |
+| [02: stores](../02-stores/) | Stores and an append-only event trail |
+| [03: code-vs-llm](../03-code-vs-llm/) | Deterministic code and reviewer judgment |
+| [04: evals](../04-evals/) | Evals for underwriting behavior |
+| [05: custom-ui](../05-custom-ui/) | Custom UI, roles, and routes |
+| [06: guardrail-hooks](../06-guardrail-hooks/) | Guard hooks for hard rules |
+| [07: gmail-connection](../07-gmail-connection/) | Gmail policies and native OpenAPI weather discovery |
+| [08: custom-tool](../08-custom-tool/) | Custom tools for claims arithmetic |
+| [09: model-delegation](../09-model-delegation/) | Model-initiated delegation |
+| [10: automations](../10-automations/) | Background automations |
+| [11: memory-and-surfaces](../11-memory-and-surfaces/) | Memory and conditional surfaces |
+| [12: embedding and multi-tenancy](../../README.md) | Scoped desks, sessions, and memory |
 
 ## The one idea this step teaches: the code-vs-LLM split
 
@@ -165,3 +169,11 @@ run locally.
   triggered tools also fire without the agent calling them; listing them lets
   the agent call `analyze_submission` itself for free-form requests.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in the stores, so each triage is a pure function of what is in them and there is nothing to carry across sessions in conversation memory.
+
+## External data in the series
+
+[Step 7](../07-gmail-connection/README.md) adds external connections:
+Gmail for broker correspondence and a public weather API for active US
+alerts. The weather lookup needs no account or API key. It introduces
+native OpenAPI discovery and keeps regional alerts separate from the
+underwriting assessment.

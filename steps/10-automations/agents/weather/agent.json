@@ -1,0 +1,12 @@
+{
+  "name": "Weather Alerts",
+  "description": "Checks active NWS alerts for one US state or territory. Reports regional conditions without underwriting decisions.",
+  "connections": [
+    "weather"
+  ],
+  "tools": [],
+  "stores": {},
+  "skills": [],
+  "subagents": [],
+  "timeout": 120
+}

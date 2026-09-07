@@ -17,6 +17,7 @@ import { AutoSyncToggle } from "./components/AutoSyncToggle";
 import { DecideModal } from "./components/DecideModal";
 import { Modal } from "./components/Modal";
 import { ReplyModal } from "./components/ReplyModal";
+import { WeatherAlerts } from "./components/WeatherAlerts";
 import { Sidebar } from "./components/Sidebar";
 import { Guide } from "./screens/Guide";
 import { History } from "./screens/History";
@@ -330,6 +331,13 @@ export default function App() {
             submitting={submit.status === "running"}
             submitError={submitError}
             onResubmit={(draft) => void onSubmit(draft, route.submission_id)}
+            weather={
+              <WeatherAlerts
+                key={`${desk}:${route.submission_id}:${all.find((s) => s.submission_id === route.submission_id)?.state}`}
+                state={all.find((s) => s.submission_id === route.submission_id)?.state}
+                scopeId={desk}
+              />
+            }
             onReply={openReply}
           />
         ) : null}

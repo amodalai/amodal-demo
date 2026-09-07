@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FindingBody } from "../components/FindingBody";
 import { StatusPill } from "../components/Pills";
 import { SubmissionActions } from "../components/SubmissionActions";
@@ -21,6 +21,7 @@ export function SubmissionDetail({
   submitError,
   onResubmit,
   onReply,
+  weather,
 }: {
   role: Role;
   s?: SubmissionRow;
@@ -32,6 +33,7 @@ export function SubmissionDetail({
   submitError?: string;
   onResubmit: (draft: SubmissionDraft) => void;
   onReply?: (s: SubmissionRow, finding: FindingRow) => void;
+  weather?: ReactNode;
 }) {
   if (!s) {
     return (
@@ -48,6 +50,7 @@ export function SubmissionDetail({
       events={events}
       actions={actions}
       onReply={onReply}
+      weather={weather}
     />
   ) : (
     <BrokerView
@@ -103,6 +106,7 @@ function UnderwriterView({
   events,
   actions,
   onReply,
+  weather,
 }: {
   s: SubmissionRow;
   finding?: FindingRow;
@@ -110,6 +114,7 @@ function UnderwriterView({
   events: EventRow[];
   actions: SubmissionActionsApi;
   onReply?: (s: SubmissionRow, finding: FindingRow) => void;
+  weather?: ReactNode;
 }) {
   return (
     <>
@@ -150,6 +155,7 @@ function UnderwriterView({
             </>
           ) : null}
         </section>
+        {weather}
         <section>
           <h3>Timeline</h3>
           <Timeline events={events} />

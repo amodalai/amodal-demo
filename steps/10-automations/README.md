@@ -39,19 +39,20 @@ current step**. Two ways to use it:
 **You are here: `steps/10-automations`.** This README describes the app at
 this step.
 
-| Step                           | What you learn                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `steps/01-skills-and-knowledge`| The runtime loop and context compiler, and the core primitives: skills and knowledge                               |
-| `steps/02-stores`              | Stores, the CRUD tools Amodal generates, and an append-only trail beside the row tables                                  |
-| `steps/03-code-vs-llm`         | Splitting work between code and the LLM: deterministic logic in a custom tool vs. judgment in a reviewer subagent  |
-| `steps/04-evals`               | Evals as quality gates: pin the reviewer's judgment down before you build surfaces on top of it                    |
-| `steps/05-custom-ui`           | Going beyond hosted chat: a custom UI with `runtimeApp`, roles and routes, and tools the model cannot call                           |
-| `steps/06-guardrail-hooks`     | Guardrail hooks: one hard rule, enforced at the platform layer for every writer                                    |
-| `steps/07-gmail-connection`    | Connecting to an external service, the surfaces it exposes, and read-only vs. confirm policies                     |
-| `steps/08-custom-tool`         | Writing a custom tool when a Markdown skill and a schema aren't enough                                             |
-| `steps/09-model-delegation`    | Model-initiated delegation: the chat agent dispatching a subagent itself via `call_subagent`                       |
-| `steps/10-automations`         | Background automations: scheduled runs that need no UI open, and the confirm gate with no human present            |
-| repo root (step 11)            | Memory and conditional surfaces: one deployed agent whose capabilities vary per caller                             |
+| Step | What you learn |
+| --- | --- |
+| [01: skills-and-knowledge](../01-skills-and-knowledge/) | Skills, knowledge, and the runtime loop |
+| [02: stores](../02-stores/) | Stores and an append-only event trail |
+| [03: code-vs-llm](../03-code-vs-llm/) | Deterministic code and reviewer judgment |
+| [04: evals](../04-evals/) | Evals for underwriting behavior |
+| [05: custom-ui](../05-custom-ui/) | Custom UI, roles, and routes |
+| [06: guardrail-hooks](../06-guardrail-hooks/) | Guard hooks for hard rules |
+| [07: gmail-connection](../07-gmail-connection/) | Gmail policies and native OpenAPI weather discovery |
+| [08: custom-tool](../08-custom-tool/) | Custom tools for claims arithmetic |
+| [09: model-delegation](../09-model-delegation/) | Model-initiated delegation |
+| [10: automations](../10-automations/) | Background automations |
+| [11: memory-and-surfaces](../11-memory-and-surfaces/) | Memory and conditional surfaces |
+| [12: embedding and multi-tenancy](../../README.md) | Scoped desks, sessions, and memory |
 
 ## The one idea this step teaches: background automations
 
@@ -95,6 +96,36 @@ confirm gate is no longer a property of the modal: it is a property of the
 send.
 
 See the diff: `diff -r steps/09-model-delegation steps/10-automations`.
+
+## Live weather alerts through OpenAPI
+
+Open an applicant as the underwriter and click **Check weather alerts**.
+Northstar Storage is a useful example: its Texas submission gives the
+lookup a state without needing an address or geocoding service. The panel
+reports current alert types, severity, affected areas, and expiry times,
+with a source link and the time of the check. No account or API key is
+required. A state can have no active alerts; an unavailable service is
+shown as a failed check.
+
+The [`weather` agent](agents/weather/AGENT.md) holds only the
+[NWS connection](amodal/connections/weather/README.md). The UI sends a
+chat request to that agent. It discovers the operation from the checked-in
+OpenAPI contract, calls the generated tool, and reads paged results when
+the response is large. The panel accepts a report only after a successful
+native alert call. The agent has no store grants or decision tools.
+The `weather-alerts` eval checks discovery and source-grounded reporting;
+`weather-read-only` checks that this surface refuses decision and email
+requests. The live eval needs an available NWS service.
+
+This teaches a second way to connect: Gmail uses an installed driver;
+weather uses an API contract and the runtime's native discovery. The
+explicit `openapi.source` block in `spec.json` enables it. Placing an
+`openapi.json` file in a connection directory alone does not.
+
+Statewide alerts are context for the operator. They do not establish that
+a particular property is affected, measure long-term exposure, or change
+the saved assessment. The feature requires a Cloud runtime with native
+OpenAPI discovery support and internet access to NWS.
 
 ## How it works
 
@@ -263,8 +294,9 @@ assessment cards, missing information, and conditions.
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
-and the agent chat alongside it. It runs with no credentials: the Gmail
-connection loads non-fatally, so every step works offline:
+and the agent chat alongside it. Gmail credentials are optional: without
+them, inbox sync uses the demo dataset. Weather checks use the public NWS
+service and need internet access:
 
 1. Open the app. The five demo submissions
    load into the stores on first open. With `GMAIL_ACCESS_TOKEN` set,
