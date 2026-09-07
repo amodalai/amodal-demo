@@ -258,11 +258,14 @@ export async function runUnderwritingAnalysis(
     new Set([...missingRequiredDocs, ...review.missing_info]),
   );
 
-  let recommendation = RECS.has(review.recommendation)
-    ? review.recommendation
-    : "request-info";
+  const valid = RECS.has(review.recommendation);
+  let recommendation = valid ? review.recommendation : "request-info";
+  let summary = valid
+    ? review.summary
+    : "The reviewer did not provide a valid recommendation. Review the submission before deciding.";
   if (missingRequiredDocs.length > 0 && recommendation === "ready-to-quote") {
     recommendation = "request-info";
+    summary = `Required documents are missing: ${missingRequiredDocs.join("; ")}.`;
   }
   if (recommendation !== review.recommendation) {
     deps.trace?.(
@@ -289,7 +292,7 @@ export async function runUnderwritingAnalysis(
       submission_id,
       recommendation,
       risk_score: riskScore,
-      summary: review.summary,
+      summary,
       cards: review.cards,
       missing_info: missingInfo,
       conditions: review.conditions,
@@ -319,7 +322,7 @@ export async function runUnderwritingAnalysis(
     applicant_name: sub.applicant_name,
     recommendation,
     risk_score: riskScore,
-    summary: review.summary,
+    summary,
     cards: review.cards,
     missing_info: missingInfo,
     conditions: review.conditions,

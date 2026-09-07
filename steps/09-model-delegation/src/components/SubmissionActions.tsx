@@ -8,6 +8,7 @@ export function SubmissionActions({
   s,
   finding,
   analyzing,
+  active,
   error,
   onAnalyze,
   onDecide,
@@ -16,20 +17,32 @@ export function SubmissionActions({
   s: SubmissionRow;
   finding?: FindingRow;
   analyzing: boolean;
+  active?: boolean;
   error?: string;
   onAnalyze: () => void;
   onDecide: () => void;
   onReply?: () => void;
 }) {
+  if (analyzing) return (
+    <span className="analysis-status" role="status">
+      {active ? "Analyzing against the underwriting guide…" : "Queued for analysis…"}
+    </span>
+  );
+
+  const decisionButton = (
+    <button className={`btn${s.analyzed_at ? "" : " btn--ghost"}`} onClick={onDecide}>
+      {s.decision ? "Re-decide" : "Decide"}
+    </button>
+  );
+
   return (
     <>
       <div className="act__stack">
-        <button className="btn" disabled={analyzing} onClick={onAnalyze}>
-          {analyzing ? "Analyzing…" : s.analyzed_at ? "Re-analyze" : "Analyze"}
+        {s.analyzed_at ? decisionButton : null}
+        <button className={`btn${s.analyzed_at ? " btn--ghost" : ""}`} onClick={onAnalyze}>
+          {s.analyzed_at ? "Re-analyze" : "Analyze"}
         </button>
-        <button className="btn btn--ghost" disabled={analyzing} onClick={onDecide}>
-          {s.decision ? "Re-decide" : "Decide"}
-        </button>
+        {!s.analyzed_at ? decisionButton : null}
         {onReply && finding ? (
           s.reply_status === "sent" ? (
             <span className="pill sent">Replied</span>

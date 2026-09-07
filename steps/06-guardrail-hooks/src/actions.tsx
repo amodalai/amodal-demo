@@ -8,6 +8,7 @@ import { errorMessage } from "./tools";
 export interface SubmissionActionsApi {
   /** Submissions with an analysis in flight or waiting in the queue. */
   analyzing: ReadonlySet<string>;
+  activeAnalysis?: string;
   errors: ReadonlyMap<string, string>;
   /** The submission whose decide modal is open. */
   deciding?: string;
@@ -32,6 +33,7 @@ export function useSubmissionActions(opts: {
 }): SubmissionActionsApi {
   const { client, scopeId, refetch } = opts;
   const [analyzing, setAnalyzing] = useState<ReadonlySet<string>>(new Set());
+  const [activeAnalysis, setActiveAnalysis] = useState<string | undefined>();
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [deciding, setDeciding] = useState<string | undefined>();
   const queue = useMemo(serial, []);
@@ -59,12 +61,14 @@ export function useSubmissionActions(opts: {
     mark(submission_id, true);
     setError(submission_id);
     void queue(async () => {
+      setActiveAnalysis(submission_id);
       try {
         await runAnalyzeCommand(client, submission_id, scopeId);
         await refetch();
       } catch (err) {
         setError(submission_id, errorMessage(err, "Analysis failed."));
       } finally {
+        setActiveAnalysis(undefined);
         pending.current.delete(submission_id);
         mark(submission_id, false);
       }
@@ -85,6 +89,7 @@ export function useSubmissionActions(opts: {
 
   return {
     analyzing,
+    activeAnalysis,
     errors,
     deciding,
     analyze,

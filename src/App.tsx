@@ -265,7 +265,7 @@ export default function App() {
             className="desk"
             value={desk}
             onChange={(e) => onPickDesk(e.target.value)}
-            title="Each desk is a scope_id: its submissions, findings, sessions, and memory are partitioned from the other desk's."
+            title="Each desk has its own submissions, review history, and agent memory."
           >
             {DESKS.map((d) => (
               <option key={d.id} value={d.id}>

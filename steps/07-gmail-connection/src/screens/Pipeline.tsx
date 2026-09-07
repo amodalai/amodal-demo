@@ -20,6 +20,10 @@ export function Pipeline({
   const pending = submissions.filter(
     (s) => !s.analyzed_at && !actions.analyzing.has(s.submission_id),
   );
+  const queued = actions.analyzing.size - (actions.activeAnalysis ? 1 : 0);
+  const progress = actions.activeAnalysis
+    ? `Analyzing 1${queued ? ` · ${queued} queued` : ""}…`
+    : queued ? `Queued ${queued}…` : undefined;
 
   return (
     <>
@@ -27,10 +31,12 @@ export function Pipeline({
         <div>
           <h2>Pipeline</h2>
           <p className="sub">
-            Every submission on the desk. <em>Analyze</em> scores one against the
-            underwriting guide; <em>Decide</em> records your call. The agent
-            recommends a workflow status. It never binds coverage, prices premium,
-            or gives legal advice.
+            Commercial property insurance submissions on this desk. The agent
+            checks documents, claims, and eligibility against the underwriting
+            guide, then recommends a next step. You make the decision.
+          </p>
+          <p className="sub">
+            Open an applicant for the full assessment and missing documents.
           </p>
         </div>
         <button
@@ -38,9 +44,7 @@ export function Pipeline({
           disabled={pending.length === 0}
           onClick={() => pending.forEach((s) => actions.analyze(s.submission_id))}
         >
-          {actions.analyzing.size > 0
-            ? `Analyzing ${actions.analyzing.size}…`
-            : `Analyze all${pending.length ? ` (${pending.length})` : ""}`}
+          {progress ?? `Analyze all${pending.length ? ` (${pending.length})` : ""}`}
         </button>
       </header>
 

@@ -24,17 +24,25 @@ export function SubmissionTable({
             <th>Applicant</th>
             <th>Business</th>
             <th>State</th>
-            <th>Recommendation</th>
-            <th className="num">Risk</th>
-            <th>Decision</th>
-            <th>Missing info</th>
+            <th>Agent recommendation</th>
+            <th>Your decision</th>
             <th className="act"></th>
           </tr>
         </thead>
         <tbody>
           {submissions.map((s) => {
             const finding = findingBySub.get(s.submission_id);
-            const claimsNote = finding?.cards?.find((c) => c.category === "claims")?.note?.trim();
+            const analyzing = actions.analyzing.has(s.submission_id);
+            const rowActions = <SubmissionActions
+              s={s}
+              finding={finding}
+              analyzing={analyzing}
+              active={actions.activeAnalysis === s.submission_id}
+              error={actions.errors.get(s.submission_id)}
+              onAnalyze={() => actions.analyze(s.submission_id)}
+              onDecide={() => actions.openDecide(s.submission_id)}
+              onReply={onReply && finding ? () => onReply(s, finding) : undefined}
+            />;
             return (
               <tr key={s.submission_id}>
                 <td>
@@ -53,34 +61,18 @@ export function SubmissionTable({
                 <td>{s.business_type}</td>
                 <td>{s.state ?? "—"}</td>
                 <td>
-                  <RecPill rec={s.recommendation} />
-                  {claimsNote ? <div className="claims-note">{claimsNote}</div> : null}
+                  {analyzing ? rowActions : (
+                    <>
+                      <RecPill rec={s.recommendation} />
+                      {finding?.summary ? <p className="review-summary">{finding.summary}</p> : null}
+                    </>
+                  )}
                 </td>
-                <td className="num">{s.risk_score ?? "—"}</td>
                 <td>
                   <DecisionPill s={s} />
                 </td>
-                <td className="missing">
-                  {finding?.missing_info?.length ? (
-                    <ul className="missing-list">
-                      {finding.missing_info.map((m) => (
-                        <li key={m}>{m}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    "—"
-                  )}
-                </td>
                 <td className="act">
-                  <SubmissionActions
-                    s={s}
-                    finding={finding}
-                    analyzing={actions.analyzing.has(s.submission_id)}
-                    error={actions.errors.get(s.submission_id)}
-                    onAnalyze={() => actions.analyze(s.submission_id)}
-                    onDecide={() => actions.openDecide(s.submission_id)}
-                    onReply={onReply && finding ? () => onReply(s, finding) : undefined}
-                  />
+                  {analyzing ? null : rowActions}
                 </td>
               </tr>
             );

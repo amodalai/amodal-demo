@@ -134,7 +134,8 @@ The `analyze` path runs the same four-stage loop as before, in the shared
    hazards, claims severity, one recommendation).
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding and won't let a packet with missing
-   required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
+   required docs be `ready-to-quote`. If code overrides the recommendation, the
+   saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and returns the result. The `ready-to-quote-guard`
    hook backstops that last rule for every writer.
 
@@ -208,6 +209,14 @@ The four submissions shipped in `examples.ts`:
 | Northstar Storage         | 22-yr roof, hail region, clean claims                       | `quote-with-conditions`  |
 | Vacant Millworks Building | Vacant, ineligible                                          | `decline`                |
 
+The pipeline shows the agent's recommendation and summary separately from
+what the underwriter decided. **Decide** leads the actions after analysis;
+**Re-analyze** runs another review. Pending rows show **Queued for analysis**
+or **Analyzing against the underwriting guide**, with active and waiting
+counts above the table. These labels follow the analysis queue; they do not
+report individual checks. The applicant page holds the full risk score,
+assessment cards, missing information, and conditions.
+
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
@@ -218,9 +227,9 @@ connection loads non-fatally, so every step works offline:
    load into the stores on first open. With `GMAIL_ACCESS_TOKEN` set,
    **Sync inbox** reads the real broker inbox. **Reset demo data** puts the
    stores back to the demo dataset.
-2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
-   and missing-info list appear inline. (You can still triage from chat with
-   `analyze <id>`. Both run the same logic.)
+2. Click **Analyze** on a row to triage it. The row shows whether it is queued
+   or actively analyzing, then the saved recommendation and its explanation. Open the applicant for the risk score and missing information.
+   Chat's `analyze <id>` runs the same logic.
 3. Click **Send reply** to email the outcome back to the broker. Review the exact
    message in the modal and **Confirm**. That operator confirmation is the gate
    on the write surface. Offline, the send is captured by the dev outbox

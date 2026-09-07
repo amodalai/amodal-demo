@@ -121,7 +121,8 @@ Both entry points run the same four-stage loop, in the shared
    hazards, claims severity, one recommendation).
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding and won't let a packet with missing
-   required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
+   required docs be `ready-to-quote`. If code overrides the recommendation, the
+   saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and returns the result. **New in this step:** the
    `ready-to-quote-guard` hook backstops that last rule for every writer,
    not just this handler.
@@ -173,6 +174,14 @@ The four submissions shipped in `examples.ts`:
 | Summit Yoga Studio        | Complete packet, no claims, eligible                        | `ready-to-quote`         |
 | Northstar Storage         | 22-yr roof, hail region, clean claims                       | `quote-with-conditions`  |
 | Vacant Millworks Building | Vacant, ineligible                                          | `decline`                |
+
+The pipeline shows the agent's recommendation and summary separately from
+what the underwriter decided. **Decide** leads the actions after analysis;
+**Re-analyze** runs another review. Pending rows show **Queued for analysis**
+or **Analyzing against the underwriting guide**, with active and waiting
+counts above the table. These labels follow the analysis queue; they do not
+report individual checks. The applicant page holds the full risk score,
+assessment cards, missing information, and conditions.
 
 ## Running it
 

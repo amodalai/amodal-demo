@@ -174,7 +174,8 @@ tools and the reviewer subagent); undeclared calls fail closed:
    parses.
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding and won't let a packet with missing
-   required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
+   required docs be `ready-to-quote`. If code overrides the recommendation, the
+   saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and reports: the model summarizes the tool result in
    chat, and the UI refetches its `useStoreQuery` data. The
    `ready-to-quote-guard` hook backstops that last rule for every writer.
@@ -262,6 +263,14 @@ The five submissions shipped in `examples.ts`:
 | Northstar Storage         | 22-yr roof, hail region, clean claims                             | `quote-with-conditions`  |
 | Vacant Millworks Building | Vacant, ineligible                                                | `decline`                |
 
+The pipeline shows the agent's recommendation and summary separately from
+what the underwriter decided. **Decide** leads the actions after analysis;
+**Re-analyze** runs another review. Pending rows show **Queued for analysis**
+or **Analyzing against the underwriting guide**, with active and waiting
+counts above the table. These labels follow the analysis queue; they do not
+report individual checks. The applicant page holds the full risk score,
+assessment cards, missing information, and conditions.
+
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
@@ -272,11 +281,11 @@ connection loads non-fatally, so every step works offline:
    load into the stores on first open. With `GMAIL_ACCESS_TOKEN` set,
    **Sync inbox** reads the real broker inbox. **Reset demo data** puts the
    stores back to the demo dataset.
-2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
-   missing-info list, and a claims line appear inline. (You can still triage from
-   chat with `analyze <id>`. Both enter through the same trigger.) The claims
-   line is the custom tool made visible: mid-review the reviewer calls
-   `claims_stats` and must cite its numbers, so the note reads like `1 of 3
+2. Click **Analyze** on a row to triage it. The row shows whether it is queued
+   or actively analyzing, then the saved recommendation and its explanation. Open the applicant for the risk score, missing information, and
+   claims assessment. (Chat's `analyze <id>` enters through the same trigger.)
+   The claims assessment makes the custom tool's result visible: the reviewer
+   calls `claims_stats` and must cite its numbers, so the note reads like `1 of 3
    claims in the 2024-2026 window (as of 2026); largest $21k; no repeat cause`.
    The "as of" year comes from the real clock. The model does not know today's
    date, so that number is the tool's fingerprint. Two cases exercise the two

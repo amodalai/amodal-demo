@@ -1,27 +1,21 @@
 # Underwriting Review Example
 
-![The underwriter's pipeline: five submissions with their recommendation, risk score, and missing documents](docs/screenshot.png)
+![The underwriter's pipeline: recommendations with reasons, an active analysis, and queued submissions](docs/screenshot.png)
 
-An agent that triages commercial insurance submissions against an
-underwriting guide, serving two isolated underwriting desks (a `scope_id` per
-desk) from one deployment: a reviewer subagent (code-called for the saved
-triage, model-dispatched for what-if reviews), one knowledge file, five
-stores, an eval suite, a custom UI with a screen for the underwriter and a
-screen for the broker, a Gmail connection whose
-read-only surface syncs submissions in and whose confirm-gated surface emails
-outcomes back (with a daily auto-sync automation that needs no UI open),
-agent memory for each desk's standing guidance, a conditional surface that
-withholds human-only capabilities from headless runs, guardrail hooks, and
-custom tools: the composite `analyze_submission` that runs the deterministic
-triage around the subagent, the pure `claims_stats` the reviewer calls for
-the claims arithmetic, and the scoped reads and writes behind the UI. The
-agent logic runs on the Amodal runtime, and the UI is a small React app the
-runtime serves for you.
+*Illustrative review state using the demo submissions.*
 
-Each submission is scored against a fictional carrier's underwriting guide, and the
-agent returns a recommendation (`ready-to-quote`, `quote-with-conditions`,
-`request-info`, `refer`, or `decline`), saves it, and, on the operator's
-confirmation, emails it back to the broker.
+An Amodal agent that helps an underwriter review commercial property
+insurance submissions. A broker files the business details and documents.
+The agent checks the packet, claims history, and eligibility against a
+fictional underwriting guide, then recommends whether to quote, request
+information, refer for senior review, or decline. Each row explains the
+recommendation. The underwriter opens the full assessment and records the
+decision; the broker can supply missing information and resubmit.
+
+The agent runs on the Amodal runtime, which also serves the React UI. Two
+underwriting desks share one deployment, with separate submissions, agent
+memory, and sessions through `scope_id`. Gmail can bring broker submissions
+in and send reviewed outcomes back with the operator's confirmation.
 
 This is **step 12** of a guided, incremental series. See
 [The demo in steps](#the-demo-in-steps) to jump to any stage.
@@ -190,7 +184,8 @@ tools and the reviewer subagent); undeclared calls fail closed:
    parses.
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding and won't let a packet with missing
-   required docs be `ready-to-quote`. Then it writes a `risk_findings` row,
+   required docs be `ready-to-quote`. If code overrides the recommendation, the
+   saved summary explains why. Then it writes a `risk_findings` row,
    stamps the submission, and appends an `analyzed` row to the `events` store,
    naming the recommendation and the score. It then reports: the model
    summarizes the tool result in chat, and the UI refetches its table through
@@ -283,6 +278,14 @@ The five submissions shipped in `examples.ts`:
 | Northstar Storage         | 22-yr roof, hail region, clean claims                             | `quote-with-conditions`  |
 | Vacant Millworks Building | Vacant, ineligible                                                | `decline`                |
 
+The pipeline shows the agent's recommendation and summary separately from
+what the underwriter decided. **Decide** leads the actions after analysis;
+**Re-analyze** runs another review. Pending rows show **Queued for analysis**
+or **Analyzing against the underwriting guide**, with active and waiting
+counts above the table. These labels follow the analysis queue; they do not
+report individual checks. The applicant page holds the full risk score,
+assessment cards, missing information, and conditions.
+
 ## Running it
 
 Deploy the app to Amodal. The runtime serves the custom UI on the agent's domain
@@ -293,11 +296,11 @@ connection loads non-fatally, so every step works offline:
    desk's partition on first open and the desk triages itself, row by row.
    With `GMAIL_ACCESS_TOKEN` set, **Sync inbox** reads the real broker inbox.
    **Reset demo data** puts the desk back to the demo dataset.
-2. Click **Analyze** on a row to triage it: the saved recommendation, risk score,
-   missing-info list, and a claims line appear inline. (You can still triage from
-   chat with `analyze <id>`. Both enter through the same trigger.) The claims
-   line is the custom tool made visible: mid-review the reviewer calls
-   `claims_stats` and must cite its numbers, so the note reads like `1 of 3
+2. Click **Analyze** on a row to triage it. The row shows whether it is queued
+   or actively analyzing, then the saved recommendation and its explanation. Open the applicant for the risk score, missing information, and
+   claims assessment. (Chat's `analyze <id>` enters through the same trigger.)
+   The claims assessment makes the custom tool's result visible: the reviewer
+   calls `claims_stats` and must cite its numbers, so the note reads like `1 of 3
    claims in the 2024-2026 window (as of 2026); largest $21k; no repeat cause`.
    The "as of" year comes from the real clock. The model does not know today's
    date, so that number is the tool's fingerprint. Two cases exercise the two

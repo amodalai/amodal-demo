@@ -90,7 +90,8 @@ This app has two triggered custom tools:
    recounting them, and replies with a single JSON object that code parses.
 4. **record**: code holds the floor on the way out: it folds the deterministic
    missing-docs list into the finding (the model can't drop one) and won't let a
-   packet with missing required docs be `ready-to-quote`. Then it writes a
+   packet with missing required docs be `ready-to-quote`. If code overrides the
+   recommendation, the saved summary explains why. Then it writes a
    `risk_findings` row, stamps the submission, and returns the result, which
    lands in the chat agent's context for reporting. It also appends an
    `analyzed` row to the `events` store, naming the recommendation and the

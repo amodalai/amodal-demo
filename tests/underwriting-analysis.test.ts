@@ -6,7 +6,7 @@ import {
   type AnalyzeDeps,
 } from "../amodal/_lib/underwriting-analysis.js";
 import { EXAMPLES } from "../amodal/_lib/demo-data.js";
-import { assertDeclared } from "./helpers.js";
+import { assertDeclared, stepsFrom } from "./helpers.js";
 
 const NOW = new Date("2026-09-03T08:00:00.000Z");
 const GUIDE = "# guide";
@@ -226,3 +226,20 @@ test("an unparseable review is surfaced as an error", async () => {
   await assert.rejects(runUnderwritingAnalysis("sub_a", deps), /returned no JSON object/);
   assert.deepEqual(writes(), []);
 });
+
+for (const dir of [".", ...stepsFrom("03-code-vs-llm")]) {
+  const { runUnderwritingAnalysis: analyze } = await import(`../${dir}/amodal/_lib/underwriting-analysis.js`);
+  test(`${dir} explains overridden recommendations in the saved and returned summary`, async () => {
+    for (const [recommendation, documents, expected] of [
+      ["ready-to-quote", [{ kind: "inspection", name: "Sprinkler certificate", status: "missing", required: true }], /Required documents are missing: Sprinkler certificate/],
+      ["bind-it", [], /did not provide a valid recommendation/],
+    ] as const) {
+      const { deps, writes } = fakeDesk({ documents: [...documents], review: { recommendation } });
+      const out = await analyze("sub_a", deps);
+      assert.equal(out.recommendation, "request-info");
+      assert.match(out.summary, expected);
+      assert.doesNotMatch(out.summary, /Clean packet/);
+      assert.equal((writes()[0][1].value as Record<string, unknown>).summary, out.summary);
+    }
+  });
+}

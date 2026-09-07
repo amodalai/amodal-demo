@@ -122,6 +122,7 @@ function UnderwriterView({
           s={s}
           finding={finding}
           analyzing={actions.analyzing.has(s.submission_id)}
+          active={actions.activeAnalysis === s.submission_id}
           error={actions.errors.get(s.submission_id)}
           onAnalyze={() => actions.analyze(s.submission_id)}
           onDecide={() => actions.openDecide(s.submission_id)}

@@ -419,14 +419,12 @@ code {
 /* Column widths are per table: `table-layout: fixed` splits exactly what is
    declared here, so a column with no rule is a column with no width. */
 .grid--pipeline { min-width: 1040px; }
-.grid--pipeline th:nth-child(1) { width: 20%; }
-.grid--pipeline th:nth-child(2) { width: 13%; }
+.grid--pipeline th:nth-child(1) { width: 23%; }
+.grid--pipeline th:nth-child(2) { width: 16%; }
 .grid--pipeline th:nth-child(3) { width: 5%; }
-.grid--pipeline th:nth-child(4) { width: 18%; }
-.grid--pipeline th:nth-child(5) { width: 6%; }
-.grid--pipeline th:nth-child(6) { width: 11%; }
-.grid--pipeline th:nth-child(7) { width: 13%; }
-.grid--pipeline th:nth-child(8) { width: 14%; }
+.grid--pipeline th:nth-child(4) { width: 30%; }
+.grid--pipeline th:nth-child(5) { width: 12%; }
+.grid--pipeline th:nth-child(6) { width: 14%; }
 
 .grid--history th:nth-child(1) { width: 15%; }
 .grid--history th:nth-child(2) { width: 22%; }
@@ -502,11 +500,11 @@ code {
   background: #c2c6ce;
 }
 
-.claims-note {
+.review-summary, .analysis-status {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.45;
-  margin-top: 6px;
+  margin: 8px 0 0;
 }
 
 .pill {

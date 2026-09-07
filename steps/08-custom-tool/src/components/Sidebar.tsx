@@ -38,8 +38,8 @@ export function Sidebar({
         </select>
       </label>
       <p className="rail__note">
-        A screen role, not a permission. Both roles talk to the same agent. What
-        is enforced is that filing and deciding are tools no agent can call.
+        Underwriters review and decide. Brokers file submissions and respond
+        to requests for information.
       </p>
 
       <ul className="rail__tabs">
