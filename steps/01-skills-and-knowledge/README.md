@@ -83,7 +83,8 @@ custom UI yet; nothing is persisted, so each session is self-contained.
 
 | Path                                 | What it is                                                         |
 | ------------------------------------ | ------------------------------------------------------------------ |
-| `amodal.json`                        | Manifest: the chat agent (`session_types`) + the one skill.        |
+| `amodal.json`                        | App manifest and memory settings.                               |
+| `agents/default/`                    | Chat instructions in `AGENT.md` and the skill grant in `agent.json`. |
 | `amodal/skills/underwriting-review/` | The LLM skill that scores a submission against the underwriting guide. |
 | `amodal/knowledge/underwriting-guide.md` | The fictional underwriting guide the skill reasons over.           |
 
@@ -118,8 +119,9 @@ and replies with a recommendation and its reasoning.
   over. Edit it and redeploy to change what's eligible and what isn't.
 - `amodal/skills/underwriting-review/SKILL.md`: how the agent reasons: the review
   areas, the recommendation options, and the safety rules.
-- `amodal.json`: manifest: the chat agent (`session_types`) and the one skill.
-  No stores, no third-party connectors required.
+- `agents/default/AGENT.md`: the chat agent's underwriting instructions.
+- `agents/default/agent.json`: grants the `underwriting-review` skill.
+  No stores or third-party connections are required.
 - `amodal.json` sets `memory.enabled: false`. This step has no persistence yet,
   so each run is self-contained and there is nothing to carry across sessions.
   (Durable state arrives with stores in step 2.)

@@ -39,8 +39,9 @@ test("every agent.json declares a store grant the runtime accepts", () => {
 
 test("an agent is granted only stores its own snapshot defines", () => {
   for (const { root, path } of manifests) {
+    const stores = `${root}/amodal/stores`;
     const defined = new Set(
-      readdirSync(`${root}/amodal/stores`).map((file) => file.replace(/\.json$/, "")),
+      existsSync(stores) ? readdirSync(stores).map((file) => file.replace(/\.json$/, "")) : [],
     );
     for (const [store] of storesOf(path)) {
       assert.ok(defined.has(store), `${path} grants ${store}, absent from ${root}/amodal/stores`);

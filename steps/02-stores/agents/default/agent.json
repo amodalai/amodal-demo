@@ -1,0 +1,11 @@
+{
+  "skills": [
+    "underwriting-review"
+  ],
+  "stores": {
+    "submissions": "rw",
+    "documents": "rw",
+    "claims": "rw",
+    "risk_findings": "rw"
+  }
+}

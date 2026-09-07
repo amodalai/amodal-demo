@@ -94,7 +94,8 @@ nothing makes it.
 
 | Path                                 | What it is                                                              |
 | ------------------------------------ | ----------------------------------------------------------------------- |
-| `amodal.json`                        | Manifest: the chat agent (`session_types`) + its one skill + 5 stores.  |
+| `amodal.json`                        | App manifest and memory settings.                                     |
+| `agents/default/`                    | Chat instructions in `AGENT.md`; skill and store grants in `agent.json`. |
 | `amodal/skills/underwriting-review/` | The LLM skill that scores against the underwriting guide.               |
 | `amodal/knowledge/underwriting-guide.md` | The fictional underwriting guide the skill reasons over.                |
 | `amodal/stores/`                     | 5 store schemas: `submissions`, `documents`, `claims`, `risk_findings`, `events`. |
@@ -155,11 +156,14 @@ No code, no custom UI, nothing to run locally.
 
 ## Configuration
 
-- `amodal/stores/*.json`: the five store schemas. The agent reads and writes
-  these through the CRUD tools Amodal generates from them.
+- `amodal/stores/*.json`: the five store schemas. The default agent reads and
+  writes `submissions`, `documents`, `claims`, and `risk_findings` through the
+  CRUD tools Amodal generates. The `events` schema has no agent grant at this step.
 - `amodal/knowledge/underwriting-guide.md`: the underwriting rules the agent reasons over.
-- `amodal.json`: manifest: the chat agent (`session_types`), its one skill, and
-  the five stores. No third-party connectors required.
+- `agents/default/AGENT.md`: the chat agent's instructions to file, review,
+  and retrieve submissions.
+- `agents/default/agent.json`: grants the `underwriting-review` skill and
+  read/write access to the four packet stores. No third-party connections are required.
 - `amodal.json` sets `memory.enabled: false`. Durable state lives in the stores, so
   each triage is a pure function of what is in them and there is nothing to
   carry across sessions in conversation memory.
