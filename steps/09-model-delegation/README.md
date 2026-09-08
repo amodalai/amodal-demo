@@ -91,8 +91,9 @@ The grant is explicit, again. `call_subagent` is not ambient: it registers
 only for the specialists the agent's surface declares. Exposing the reviewer
 to the chat agent is a one-line, reviewable diff in
 [`agent.json`](agents/default/agent.json):
-`"subagents": ["underwriting-reviewer"]`, the exact shape of step 8's
-`"tools": ["claims_stats"]` grant, one level up.
+`"subagents": ["underwriting-reviewer", "weather"]`. The reviewer handles
+what-if questions; the weather specialist checks live alerts through its
+read-only connection. Each specialist keeps its own prompt and tool grants.
 
 Two callers, one specialist. The code path hands the reviewer everything as
 input: the guide text and the authoritative missing-docs list, computed
@@ -115,22 +116,33 @@ See the diff: `diff -r steps/08-custom-tool steps/09-model-delegation`.
 ## Live weather alerts through OpenAPI
 
 Open an applicant as the underwriter and click **Check weather alerts**.
-Northstar Storage is a useful example: its Texas submission gives the
-lookup a state without needing an address or geocoding service. The panel
+Northstar Storage uses Texas (`TX`) from its saved submission. The panel
 reports current alert types, severity, affected areas, and expiry times,
 with a source link and the time of the check. No account or API key is
 required. A state can have no active alerts; an unavailable service is
 shown as a failed check.
 
+The main chat can also check alerts. Ask **Do you have access to a weather
+API?** to learn about the feature, or **Check weather alerts for Northstar
+Storage** to request a live lookup. The chat reads the applicant's saved
+state from the current stores and delegates to `weather`. An explicit
+state such as **Texas** works without a submission. If the location is
+missing or ambiguous, the chat asks for a US state or territory.
+
 The [`weather` agent](agents/weather/AGENT.md) holds only the
-[NWS connection](amodal/connections/weather/README.md). The UI sends a
-chat request to that agent. It discovers the operation from the checked-in
-OpenAPI contract, calls the generated tool, and reads paged results when
-the response is large. The panel accepts a report only after a successful
-native alert call. The agent has no store grants or decision tools.
+[NWS connection](amodal/connections/weather/README.md). The applicant
+panel addresses that agent directly. It discovers the operation from the
+checked-in OpenAPI contract, calls the generated tool, and reads paged
+results when the response is large. The panel accepts a report only after
+a successful native alert call. The agent has no store grants or decision
+tools.
+
 The `weather-alerts` eval checks discovery and source-grounded reporting;
-`weather-read-only` checks that this surface refuses decision and email
-requests. The live eval needs an available NWS service.
+`weather-read-only` checks refusal of decision and email requests.
+`weather-chat-capabilities` checks the main chat's explanation without a
+live lookup. The `weather-chat-alerts` and `weather-chat-location` evals
+check delegation and missing-location handling. The live evals need an
+available NWS service.
 
 This teaches a second way to connect: Gmail uses an installed driver;
 weather uses an API contract and the runtime's native discovery. The
@@ -382,16 +394,12 @@ service and need internet access:
 
 - `sub_bistro_ember` · `sub_cascade_printworks` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
-See the grant's value in one edit. The whole delegation lives in one line of
-the chat agent's config, so removing it takes the capability away: delete the
-`"subagents"` line from `agents/default/agent.json`. Redeploy and ask the
-what-if again: with no `call_subagent` registered, the model has no path to
-the reviewer and must either answer from its own judgment (unguided, no
-`claims_stats`, no guide discipline) or decline. That contrast is the lesson:
-the specialist is a granted capability, not a prompt convention. Restore with
-`git checkout main -- steps/09-model-delegation/agents/default/agent.json`. (Step 8's version of the
-same experiment: empty the reviewer's `"tools"` list and watch the claims
-window drift to the model's training-data sense of what year it is.)
+To test the reviewer grant, remove `"underwriting-reviewer"` from the
+`subagents` list in `agents/default/agent.json`, then redeploy and ask a
+what-if question. `call_subagent` remains available for `weather`, but its
+allowed specialist names exclude the reviewer. Removing the entire
+`subagents` list removes model-initiated delegation to both specialists.
+Restore the reviewer entry after the experiment.
 
 To talk to a real mailbox, copy `.env.example` to `.env` and set
 `GMAIL_ACCESS_TOKEN` (+ `GMAIL_FROM_ADDRESS` to send). See

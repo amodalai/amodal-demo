@@ -23,8 +23,8 @@ export default {
     { name: "seed_examples", conditional: humanPresent },
   ],
   subagents: [
-    // What-if dispatches exist to answer a person mid-conversation. A
-    // headless run has nobody asking, so it doesn't hold the specialist.
+    // Unattended runs do not need conversational specialists.
     { name: "underwriting-reviewer", conditional: humanPresent },
+    { name: "weather", conditional: humanPresent },
   ],
 } satisfies AgentDefinition;

@@ -6,6 +6,7 @@ import { STEPS, stepsFrom } from "./helpers.js";
 const files = [
   "evals/weather-alerts.md",
   "evals/weather-read-only.md",
+  "evals/weather-chat-capabilities.md",
   "agents/weather/agent.json",
   "agents/weather/AGENT.md",
   "amodal/connections/weather/spec.json",
@@ -58,5 +59,33 @@ test("weather views reset per submission and state, and per desk only at step 12
       assert.match(weather, /key=\{.*desk/, root);
       assert.match(weather, /scopeId=\{desk\}/, root);
     } else assert.doesNotMatch(weather, /scopeId/, root);
+  }
+});
+
+for (const root of stepsFrom("09-model-delegation").slice(0, 2)) {
+  test(`${root}: chat can delegate weather without holding the connection itself`, () => {
+    const agent = JSON.parse(readFileSync(`${root}/agents/default/agent.json`, "utf8"));
+    assert.ok(agent.subagents.includes("weather"));
+    assert.ok(agent.subagents.includes("underwriting-reviewer"));
+    assert.deepEqual(agent.connections ?? [], []);
+  });
+}
+
+test("the connection lessons keep model delegation for step 9", () => {
+  for (const root of stepsFrom("07-gmail-connection").slice(0, 2)) {
+    const agent = JSON.parse(readFileSync(`${root}/agents/default/agent.json`, "utf8"));
+    assert.deepEqual(agent.subagents ?? [], []);
+    assert.deepEqual(agent.connections ?? [], []);
+  }
+});
+
+test("weather chat checks start with the delegation lesson", () => {
+  for (const root of stepsFrom("07-gmail-connection")) {
+    for (const name of ["weather-chat-alerts", "weather-chat-location"]) {
+      const path = `${root}/evals/${name}.md`;
+      if (stepsFrom("09-model-delegation").includes(root)) {
+        assert.equal(readFileSync(path, "utf8"), readFileSync(`evals/${name}.md`, "utf8"), path);
+      } else assert.equal(existsSync(path), false, path);
+    }
   }
 });

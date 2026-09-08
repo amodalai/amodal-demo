@@ -61,25 +61,22 @@ app at this step.
 
 ## The one idea this step teaches: capabilities that depend on the caller
 
-One agent is deployed, but not every caller should hold the same surface. Step
-11 makes two capability decisions depend on who — or what — is asking, and
-gives the agent a place to keep what a caller tells it.
+Step 11 makes three chat capabilities depend on the caller and enables
+memory for standing guidance. An operator can use `seed_examples`, ask
+the underwriting reviewer a what-if question, and request a weather check.
+Scheduled runs have no operator asking for those actions.
 
-The setup step 10 created. Sessions now start two ways: an operator in the
-chat, and a scheduled binding with nobody present. Two of the chat agent's
-capabilities silently assumed a person. `seed_examples` in chat is the
-operator's shortcut (the UI's first-open seed runs it over the invoke lane,
-outside the agent); a headless run that "seeds" over a real mailbox sync
-would fake data with no one to notice. The reviewer dispatch (step 9) exists to
-answer a person mid-conversation; a headless run has nobody asking. Telling
-the model "don't use these when running unattended" would be a request. Not
-holding the tool is a fact.
+The chat's `seed_examples` shortcut must not insert fictional submissions
+into an unattended mailbox workflow. Reviewer and weather dispatch serve
+operator questions. Their grants are conditional on a person being present.
+The UI's first-open seed and applicant weather panel use their own entry
+points outside the main chat.
 
 What a conditional surface is. [`agent.ts`](agents/default/agent.ts) is the
 code form of `agent.json`, and the only form that can carry a predicate: any
 entry may be `{name, conditional}`, where the conditional is a synchronous,
 pure function of the caller context (`claims`, `context`, `scopeId`,
-`humanPresent`, `isSubagent`). Both capabilities above are now gated on
+`humanPresent`, `isSubagent`). All three capabilities above are gated on
 `ctx.humanPresent`, which the platform derives from how the run was triggered:
 false for automation, webhook, and backfill runs, and not forgeable from a
 request body. The declarative rest (name, description, stores) stays in
@@ -112,22 +109,33 @@ See the diff: `diff -r steps/10-automations steps/11-memory-and-surfaces`.
 ## Live weather alerts through OpenAPI
 
 Open an applicant as the underwriter and click **Check weather alerts**.
-Northstar Storage is a useful example: its Texas submission gives the
-lookup a state without needing an address or geocoding service. The panel
+Northstar Storage uses Texas (`TX`) from its saved submission. The panel
 reports current alert types, severity, affected areas, and expiry times,
 with a source link and the time of the check. No account or API key is
 required. A state can have no active alerts; an unavailable service is
 shown as a failed check.
 
+The main chat can also check alerts. Ask **Do you have access to a weather
+API?** to learn about the feature, or **Check weather alerts for Northstar
+Storage** to request a live lookup. The chat reads the applicant's saved
+state from the current stores and delegates to `weather`. An explicit
+state such as **Texas** works without a submission. If the location is
+missing or ambiguous, the chat asks for a US state or territory.
+
 The [`weather` agent](agents/weather/AGENT.md) holds only the
-[NWS connection](amodal/connections/weather/README.md). The UI sends a
-chat request to that agent. It discovers the operation from the checked-in
-OpenAPI contract, calls the generated tool, and reads paged results when
-the response is large. The panel accepts a report only after a successful
-native alert call. The agent has no store grants or decision tools.
+[NWS connection](amodal/connections/weather/README.md). The applicant
+panel addresses that agent directly. It discovers the operation from the
+checked-in OpenAPI contract, calls the generated tool, and reads paged
+results when the response is large. The panel accepts a report only after
+a successful native alert call. The agent has no store grants or decision
+tools.
+
 The `weather-alerts` eval checks discovery and source-grounded reporting;
-`weather-read-only` checks that this surface refuses decision and email
-requests. The live eval needs an available NWS service.
+`weather-read-only` checks refusal of decision and email requests.
+`weather-chat-capabilities` checks the main chat's explanation without a
+live lookup. The `weather-chat-alerts` and `weather-chat-location` evals
+check delegation and missing-location handling. The live evals need an
+available NWS service.
 
 This teaches a second way to connect: Gmail uses an installed driver;
 weather uses an API contract and the runtime's native discovery. The
@@ -395,8 +403,8 @@ service and need internet access:
 - `sub_bistro_ember` · `sub_cascade_printworks` · `sub_summit_yoga` · `sub_northstar_storage` · `sub_vacant_millworks`
 
 See the surface change with the caller. The same deployed agent holds
-`seed_examples` and the reviewer dispatch when an operator chats, and neither
-when a scheduled binding runs it: both entries in
+`seed_examples`, reviewer dispatch, and weather dispatch when an operator
+chats. Scheduled bindings hold none of them: all three entries in
 `agents/default/agent.ts` are conditional on `ctx.humanPresent`, which the
 platform sets from how the run was triggered. Delete a `conditional` and the
 entry becomes unconditional; delete the entry and no caller ever holds it —
@@ -455,5 +463,5 @@ npm test           # runtime, UI, and model store-write guard tests
 - `agents/default/agent.ts`: the conditional surface. Edit the predicates to
   change which callers hold `seed_examples` (the chat entry; the UI's
   first-open seed and `reset_demo` run over the invoke lane, outside this
-  agent) and the reviewer dispatch; the entries written there are the
+  agent), reviewer dispatch, and weather dispatch; the entries written there are the
   ceiling, and a predicate can only subtract.

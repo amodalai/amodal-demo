@@ -23,8 +23,9 @@ duplicated here.
 
 Step 7 introduces both a packaged Gmail driver and a public National
 Weather Service connection. Steps 7 through 12 include the weather agent,
-contract, applicant-page lookup, and tests. Steps 1 through 6 keep the
-capabilities taught at those stages. The weather connection requires a
+contract, applicant-page lookup, and tests. The main chat explains the
+feature in steps 7 and 8 and delegates live checks from step 9 onward.
+Steps 1 through 6 keep the capabilities taught at those stages. The weather connection requires a
 Cloud runtime with native OpenAPI discovery support.
 
 ## Using the steps

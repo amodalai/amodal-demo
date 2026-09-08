@@ -122,22 +122,33 @@ See the diff: `diff -r -x steps -x node_modules -x dist steps/11-memory-and-surf
 ## Live weather alerts through OpenAPI
 
 Open an applicant as the underwriter and click **Check weather alerts**.
-Northstar Storage is a useful example: its Texas submission gives the
-lookup a state without needing an address or geocoding service. The panel
+Northstar Storage uses Texas (`TX`) from its saved submission. The panel
 reports current alert types, severity, affected areas, and expiry times,
 with a source link and the time of the check. No account or API key is
 required. A state can have no active alerts; an unavailable service is
 shown as a failed check.
 
+The main chat can also check alerts. Ask **Do you have access to a weather
+API?** to learn about the feature, or **Check weather alerts for Northstar
+Storage** to request a live lookup. The chat reads the applicant's saved
+state from the current stores and delegates to `weather`. An explicit
+state such as **Texas** works without a submission. If the location is
+missing or ambiguous, the chat asks for a US state or territory.
+
 The [`weather` agent](agents/weather/AGENT.md) holds only the
-[NWS connection](amodal/connections/weather/README.md). The UI sends a
-chat request to that agent. It discovers the operation from the checked-in
-OpenAPI contract, calls the generated tool, and reads paged results when
-the response is large. The panel accepts a report only after a successful
-native alert call. The agent has no store grants or decision tools.
+[NWS connection](amodal/connections/weather/README.md). The applicant
+panel addresses that agent directly. It discovers the operation from the
+checked-in OpenAPI contract, calls the generated tool, and reads paged
+results when the response is large. The panel accepts a report only after
+a successful native alert call. The agent has no store grants or decision
+tools.
+
 The `weather-alerts` eval checks discovery and source-grounded reporting;
-`weather-read-only` checks that this surface refuses decision and email
-requests. The live eval needs an available NWS service.
+`weather-read-only` checks refusal of decision and email requests.
+`weather-chat-capabilities` checks the main chat's explanation without a
+live lookup. The `weather-chat-alerts` and `weather-chat-location` evals
+check delegation and missing-location handling. The live evals need an
+available NWS service.
 
 This teaches a second way to connect: Gmail uses an installed driver;
 weather uses an API contract and the runtime's native discovery. The
@@ -485,7 +496,7 @@ npm test           # tools, rules, UI components, hooks, and tutorial snapshots
 - `agents/default/agent.ts`: the conditional surface. Edit the predicates to
   change which callers hold `seed_examples` (the chat entry; the UI's
   first-open seed and `reset_demo` run over the invoke lane, outside this
-  agent) and the reviewer dispatch; the entries written there are the
+  agent), reviewer dispatch, and weather dispatch; the entries written there are the
   ceiling, and a predicate can only subtract.
 - The desks live in `src/App.tsx` (`DESKS`): stable `scope_id`s plus display
   labels. Add a desk by adding a row. In a real embedding the scope comes from

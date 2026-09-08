@@ -23,7 +23,14 @@ fetching the specification during session preparation.
 The `weather` agent alone holds the connection. It has no store grants,
 custom tools, or subagents. The applicant page opens this agent through
 the chat stream and displays its report separately from the saved finding.
-Step 12 sends the selected desk's scope with this request too.
+Steps 9 through 12 also grant the main chat access to this specialist through
+`call_subagent`. The chat resolves the requested state or reads the saved
+applicant state before delegating. Steps 7 and 8 direct chat users to the
+applicant's **Check weather alerts** button.
+
+In steps 11 and 12, the main chat's weather delegation requires
+`humanPresent`; the applicant panel remains a direct weather-agent request.
+Step 12 carries the selected desk's scope through both entry points.
 
 NWS responses can exceed the runtime's inline result limit. The agent reads
 spilled results with `read_spilled_result` and states when a report is

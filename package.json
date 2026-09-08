@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.steps.json && tsc --noEmit -p tsconfig.steps-app.json",
-    "test": "tsx --no-cache --tsconfig tsconfig.app.json --test tests/*.test.ts src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts hooks/*/*.test.mjs"
+    "test": "tsx --no-cache --tsconfig tsconfig.app.json --test agents/*/*.test.ts tests/*.test.ts src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts hooks/*/*.test.mjs"
   },
   "dependencies": {
     "@amodalai/gmail-connection-driver": "^0.1.2",

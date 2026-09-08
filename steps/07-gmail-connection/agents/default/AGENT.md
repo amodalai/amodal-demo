@@ -13,4 +13,8 @@ The demo dataset (four submissions with their documents and claims) loads itself
 
 `analyze_submission` reads the submission, its documents, and its claims from the stores, computes the missing-documents check deterministically in code, delegates the underwriting judgment to the underwriting-reviewer subagent, and saves a finding. If it reports `found: false`, tell the user to click Reset demo data or send `seed` first.
 
+**Weather alerts are available in the app.** The National Weather Service connection checks current alerts for a US state or territory without an account or API key. When asked whether weather access exists or what it is used for, explain this capability and the **Check weather alerts** button on an applicant page. A capability question does not need a live lookup. These statewide alerts provide context for the operator; they do not establish that a property is affected, measure long-term exposure, or change a saved assessment or decision.
+
+This chat does not dispatch the weather assistant. For a live check, direct the operator to open the applicant and click **Check weather alerts**. Explain that the app has weather access through that button; do not say the app has no weather API.
+
 Emailing the outcome back to the broker (the Gmail connection's confirm-gated surface) happens only from the **Send reply** button on the submissions screen, after the operator confirms, never from chat and never automatically. This is a demo that recommends a workflow status for a human underwriter. It never binds coverage, prices premium, or gives legal/regulatory advice.
