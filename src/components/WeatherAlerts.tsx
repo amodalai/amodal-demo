@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useAmodalContext, useChatStream } from "@amodalai/react";
+import { useId, useState } from "react";
+import { FormattedMarkdown, useAmodalContext, useChatStream } from "@amodalai/react";
 import contract from "../../amodal/connections/weather/openapi.json";
 
 const areas = contract.paths["/alerts/active/area/{area}"].parameters[0].schema.enum;
@@ -8,6 +8,8 @@ const unavailable = "Weather alerts could not be checked. Try again.";
 export function WeatherAlerts({ state, scopeId }: { state?: string | null; scopeId?: string }) {
   const { client } = useAmodalContext();
   const [checkedAt, setCheckedAt] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  const reportId = useId();
   const area = state?.trim().toUpperCase() ?? "";
   const valid = areas.includes(area);
   const chat = useChatStream({
@@ -36,6 +38,7 @@ export function WeatherAlerts({ state, scopeId }: { state?: string | null; scope
       && path !== null && typeof path === "object" && "area" in path && path.area === area;
   });
   const text = answer?.type === "assistant_text" ? answer.text.trim() : "";
+  const longReport = text.length > 1200 || text.split("\n").length > 16;
   const finished = !!checkedAt && !chat.isStreaming;
   const error = chat.error || (finished && (!verified || !text)
     ? unavailable
@@ -52,6 +55,7 @@ export function WeatherAlerts({ state, scopeId }: { state?: string | null; scope
         <button className="btn" disabled={chat.isStreaming} onClick={() => {
           chat.reset();
           setCheckedAt(undefined);
+          setExpanded(false);
           chat.send(`Check active weather alerts for ${area}.`);
         }}>
           {chat.isStreaming ? "Checking weather alerts…" : "Check weather alerts"}
@@ -60,7 +64,16 @@ export function WeatherAlerts({ state, scopeId }: { state?: string | null; scope
       <div role="status" aria-live="polite">
         {error ? <p className="banner error">{error}</p> : finished ? (
           <>
-            <p className="weather__report">{text}</p>
+            <div id={reportId} className={`weather__report${expanded ? " weather__report--expanded" : ""}`}
+              role="region" aria-label="Weather report" tabIndex={0}>
+              <FormattedMarkdown>{text}</FormattedMarkdown>
+            </div>
+            {longReport ? (
+              <button className="btn btn--ghost weather__expand" aria-expanded={expanded}
+                aria-controls={reportId} onClick={() => setExpanded(!expanded)}>
+                {expanded ? "Collapse report" : "Show full report"}
+              </button>
+            ) : null}
             <p className="sub">Checked {checkedAt}</p>
           </>
         ) : null}

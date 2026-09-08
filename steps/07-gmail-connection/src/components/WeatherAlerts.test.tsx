@@ -133,3 +133,43 @@ test("a completed report is cleared when the property's state changes", async ()
   assert.doesNotMatch(container.textContent!, /Texas report|Checked /);
   assert.match(container.textContent!, /Weather alerts · OR/);
 });
+
+test("weather reports render headings, emphasis, and lists without interpreting raw HTML", async () => {
+  const report = "## Active alerts\n\n**Flood Watch**\n\n* Travis County\n* Williamson County\n\n<img src=x onerror=alert(1)>\n\n[Unsafe link](javascript:alert(1))";
+  globalThis.fetch = async () => response([start, result, { type: "text_delta", content: report }, done]);
+  await mount("TX");
+  await click();
+  const rendered = container.querySelector(".weather__report")!;
+  assert.equal(rendered.querySelector("h2")?.textContent, "Active alerts");
+  assert.equal(rendered.querySelector("strong")?.textContent, "Flood Watch");
+  assert.deepEqual([...rendered.querySelectorAll("li")].map((li) => li.textContent), ["Travis County", "Williamson County"]);
+  assert.doesNotMatch(rendered.textContent!, /\*\*Flood Watch\*\*|\* Travis/);
+  assert.equal(rendered.querySelector("img, script, [onerror], a[href^='javascript:']"), null);
+  assert.equal(rendered.querySelector("button"), null);
+  assert.match(container.textContent!, /Checked /);
+  assert.equal(container.querySelector("a[href^='https://api.weather.gov']")?.closest(".weather__report"), null);
+});
+
+test("a long report expands independently of the check controls and resets on another check", async () => {
+  const report = "## Active alerts\n\n" + Array.from({ length: 24 }, (_, i) => `* County ${i}: Flood Watch.`).join("\n");
+  globalThis.fetch = async () => response([start, result, { type: "text_delta", content: report }, done]);
+  await mount("TX");
+  await click();
+  const toggle = () => container.querySelector<HTMLButtonElement>("button[aria-expanded]")!;
+  assert.ok(toggle(), "long reports offer expansion");
+  assert.equal(toggle().getAttribute("aria-expanded"), "false");
+  assert.equal(toggle().getAttribute("aria-controls"), container.querySelector(".weather__report")!.id);
+  await act(() => toggle().click());
+  assert.equal(toggle().getAttribute("aria-expanded"), "true");
+  assert.ok(container.querySelector(".weather__report--expanded"));
+  assert.equal(container.querySelectorAll(".weather__report li").length, 24);
+  assert.equal(container.querySelector("button")!.disabled, false);
+  assert.match(container.textContent!, /Checked /);
+  assert.ok(container.querySelector("a[href^='https://api.weather.gov']"));
+  await act(() => toggle().click());
+  assert.equal(toggle().getAttribute("aria-expanded"), "false");
+  await act(() => toggle().click());
+  await click();
+  assert.equal(toggle().getAttribute("aria-expanded"), "false");
+  assert.equal(container.querySelector(".weather__report--expanded"), null);
+});

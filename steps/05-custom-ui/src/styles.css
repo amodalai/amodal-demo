@@ -1105,7 +1105,66 @@ code {
   }
 }
 
+.weather > .btn {
+  margin-top: 12px;
+}
+
 .weather__report {
-  white-space: pre-wrap;
+  max-height: 24rem;
+  margin: 12px 0;
+  overflow: auto;
   overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.weather__report--expanded {
+  max-height: none;
+}
+
+.weather__report .prose {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.weather__report :is(h1, h2, h3, h4, h5, h6) {
+  margin: 14px 0 6px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.weather__report :is(p, ul, ol) {
+  margin: 8px 0;
+}
+
+.weather__report :is(ul, ol) {
+  padding-left: 20px;
+}
+
+.weather__report li + li {
+  margin-top: 4px;
+}
+
+.weather__report .prose > :first-child {
+  margin-top: 0;
+}
+
+.weather__report .prose > :last-child {
+  margin-bottom: 0;
+}
+
+.weather__expand {
+  margin-bottom: 8px;
+}
+
+.weather > .sub:last-child {
+  margin-top: 10px;
 }

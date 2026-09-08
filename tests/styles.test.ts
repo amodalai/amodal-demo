@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import { JSDOM } from "jsdom";
 import { SRC_DIRS } from "./helpers.js";
 
 /**
@@ -68,5 +69,29 @@ for (const dir of SRC_DIRS) {
       tableMinWidth <= maxWidth - railWidth - gap - horizontalPadding * 2,
       "the pipeline actions are visible without horizontal scrolling at the desktop max width",
     );
+  });
+}
+
+for (const dir of SRC_DIRS.filter((dir) => existsSync(`${dir}/components/WeatherAlerts.tsx`))) {
+  test(`${dir}/styles.css keeps weather prose compact and long reports scrollable`, () => {
+    const dom = new JSDOM('<style></style><div class="detail"><div class="weather__report"><div class="prose"><h2>Active alerts</h2><p>Flood Watch</p><ul><li>Travis County</li></ul></div></div></div>');
+    try {
+      dom.window.document.querySelector("style")!.textContent = readFileSync(`${dir}/styles.css`, "utf8");
+      const report = dom.window.document.querySelector<HTMLElement>(".weather__report")!;
+      const style = dom.window.getComputedStyle(report);
+      assert.match(style.maxHeight, /rem$/);
+      assert.ok(parseFloat(style.maxHeight) > 0 && parseFloat(style.maxHeight) <= 24, "the report fits a compact panel");
+      assert.equal(style.overflow, "auto");
+      assert.equal(style.overflowWrap, "anywhere");
+      const prose = dom.window.getComputedStyle(report.querySelector(".prose")!);
+      assert.equal(prose.whiteSpace, "normal");
+      assert.equal(prose.padding, "0px");
+      assert.ok(parseFloat(dom.window.getComputedStyle(report.querySelector("h2")!).fontSize) <= 16);
+      assert.ok(parseFloat(dom.window.getComputedStyle(report.querySelector("ul")!).paddingLeft) > 0);
+      report.classList.add("weather__report--expanded");
+      assert.equal(dom.window.getComputedStyle(report).maxHeight, "none");
+    } finally {
+      dom.window.close();
+    }
   });
 }
