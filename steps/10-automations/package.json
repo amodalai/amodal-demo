@@ -11,7 +11,7 @@
     "test": "tsx --no-cache --tsconfig tsconfig.app.json --test src/*.test.tsx src/components/*.test.tsx amodal/_lib/*.test.ts amodal/tools/*/*.test.ts hooks/*/*.test.mjs"
   },
   "dependencies": {
-    "@amodalai/react": "0.3.124",
+    "@amodalai/react": "0.3.125",
     "@amodalai/gmail-connection-driver": "^0.1.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

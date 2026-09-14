@@ -460,6 +460,9 @@ npm run typecheck  # typechecks the runtime code, the SPA, and every snapshot un
 npm test           # tools, rules, UI components, hooks, and tutorial snapshots
 ```
 
+Production builds use the page's absolute origin for runtime requests and
+hosted authentication. `VITE_RUNTIME_URL` applies only to development.
+
 ## Configuration
 
 - `amodal/_lib/examples.ts`: the demo submissions the UI loads on first open
