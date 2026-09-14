@@ -5,8 +5,8 @@ import App from "./App.js";
 import "@amodalai/react/style.css";
 import "./styles.css";
 
-const runtimeUrl = import.meta["env"].DEV
-  ? import.meta["env"].VITE_RUNTIME_URL || "http://localhost:3001"
+const runtimeUrl = import.meta.env.DEV
+  ? import.meta.env.VITE_RUNTIME_URL || "http://localhost:3001"
   : window.location.origin;
 
 const root = document.getElementById("root");

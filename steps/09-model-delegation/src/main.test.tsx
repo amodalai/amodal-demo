@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { build } from "vite";
 
-function providerProps(env: { DEV: boolean; VITE_RUNTIME_URL?: string }) {
+function providerProps(env: { DEV: boolean; VITE_RUNTIME_URL?: string }, builtCode?: string) {
   const source = readFileSync(new URL("./main.tsx", import.meta.url), "utf8");
-  const compiled = ts.transpileModule(source, {
+  const compiled = builtCode ?? ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
     transformers: { before: [(context) => {
       const visit: ts.Visitor = (node) => ts.isMetaProperty(node)
@@ -51,4 +53,28 @@ test("development uses an explicit runtime or the local default", () => {
   for (const value of [undefined, ""]) {
     assert.equal(providerProps({ DEV: true, VITE_RUNTIME_URL: value }).runtimeUrl, "http://localhost:3001");
   }
+});
+
+test("the Vite production entry runs without a browser environment shim", async () => {
+  const result = await build({
+    root: fileURLToPath(new URL("..", import.meta.url)),
+    configFile: fileURLToPath(new URL("../vite.config.ts", import.meta.url)),
+    envFile: false,
+    logLevel: "silent",
+    build: {
+      write: false,
+      minify: false,
+      rollupOptions: {
+        input: "src/main.tsx",
+        external: (_id, importer) => Boolean(importer),
+        output: { format: "cjs", entryFileNames: "main.js" },
+      },
+    },
+  });
+  assert.ok(!Array.isArray(result) && "output" in result);
+  const entry = result.output.find((file) => file.type === "chunk" && file.isEntry);
+  assert.ok(entry?.type === "chunk");
+  const props = providerProps({ DEV: false }, entry.code);
+  assert.equal(props.runtimeUrl, "https://agent.amodalapp.com");
+  assert.equal(props.getToken, undefined);
 });
