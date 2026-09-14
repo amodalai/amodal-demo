@@ -13,6 +13,7 @@ const SHARED = [
   "actions.tsx",
   "analyze.ts",
   "main.tsx",
+  "main.test.tsx",
   "persona.ts",
   "routes.ts",
   "serial.ts",
