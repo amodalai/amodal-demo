@@ -350,7 +350,6 @@ same durable run use in-memory rows because pending writes cannot be read back.
 | `hooks/ready-to-quote-guard/`                         | `preToolUse` guard checking required documents on model-selected writes.                                                           |
 | `hooks/outbound-reply-guard/`                         | `preToolUse` guard on model-selected `send_message`: no reply before a triage, and no reply from an automation/webhook run (nobody to confirm). |
 | `src/`                                                | The custom React UI (Vite): `App.tsx` is the shell (data, role, route), with `screens/` and `components/` beside it. `routes.ts` holds the hash routes and which role owns which, `persona.ts` the role switch, `serial.ts` the one-at-a-time analysis queue. A desk picker scopes every request. |
-| `tests/`                                              | Unit tests for the tool handlers, shared rules, UI modules, and step snapshots. `npm test` also runs sibling tests in `src/components/` and `hooks/`. Tests stay outside `amodal/` so runtime loaders do not pick them up. |
 | `.env.example`                                        | The Gmail env vars (all optional, unset runs offline).                                                                          |
 | `index.html` · `vite.config.ts` · `tsconfig.app.json` | SPA entry + build config.                                                                                                      |
 | `docs/screenshot.png`                                 | The screenshot at the top of this README, and the source for the marketplace card image. |
@@ -457,7 +456,6 @@ npm install
 npm run dev        # Vite dev server; talks to a runtime at VITE_RUNTIME_URL (default http://localhost:3001)
 npm run build      # production build → dist/ (what the cloud build uploads)
 npm run typecheck  # typechecks the runtime code, the SPA, and every snapshot under steps/
-npm test           # tools, rules, UI components, hooks, and tutorial snapshots
 ```
 
 Production builds use the page's absolute origin for runtime requests and
