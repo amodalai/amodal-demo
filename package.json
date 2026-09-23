@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@amodalai/gmail-connection-driver": "^0.1.2",
-    "@amodalai/react": "0.3.125",
+    "@amodalai/react": "0.3.126",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
