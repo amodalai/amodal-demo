@@ -61,6 +61,7 @@ export default function App() {
   const [desk, setDesk] = useState(initialDesk);
   const scopeRef = useRef({ desk });
   const readRequest = useRef(0);
+  const chatChangedPipeline = useRef(false);
 
   // Every lane carries the desk's scope: the store rows these runs touch
   // live in that desk's partition, invisible to the other desk.
@@ -167,6 +168,7 @@ export default function App() {
   function onPickDesk(id: string) {
     if (id === desk) return;
     scopeRef.current = { desk: id };
+    chatChangedPipeline.current = false;
     setPipeline(EMPTY_PIPELINE);
     setPipelineError(undefined);
     actions.closeDecide();
@@ -441,7 +443,15 @@ export default function App() {
         agent="default"
         scopeId={desk}
         theme={{ primaryColor: "#000000", mode: "light" }}
+        onToolCall={({ toolName }) => {
+          // Either tool can leave partial writes even when it fails.
+          if (scopeRef.current.desk === desk && (toolName === "analyze_submission" || toolName === "seed_examples")) {
+            chatChangedPipeline.current = true;
+          }
+        }}
         onStreamEnd={() => {
+          if (scopeRef.current.desk !== desk || !chatChangedPipeline.current) return;
+          chatChangedPipeline.current = false;
           void refetch();
         }}
       />
